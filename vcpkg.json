@@ -1,0 +1,8 @@
+{
+  "name": "alchemyfarm",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "sfml"
+  ],
+  "builtin-baseline": "08d0fe224aa55920c20eac560021b004102dbe8f"
+}

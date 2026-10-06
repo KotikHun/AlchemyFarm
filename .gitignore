@@ -31,3 +31,6 @@ Thumbs.db
 
 # Temporary commit message files
 commit-msg.txt
+
+# vcpkg
+vcpkg_installed/
