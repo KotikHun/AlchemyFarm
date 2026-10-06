@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="AlchemyFarm.vcxproj" />
+  <Project Path="AlchemyFarm.vcxproj" Id="c887b8e1-9a1c-4b20-878e-e3e80134f8ee" />
 </Solution>
