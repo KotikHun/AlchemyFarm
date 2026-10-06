@@ -28,3 +28,6 @@ Thumbs.db
 
 # Siv3D temp
 /Intermediate/
+
+# Temporary commit message files
+commit-msg.txt
