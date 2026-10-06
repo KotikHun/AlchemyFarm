@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="AlchemyFarm.vcxproj" Id="651e86b5-80dc-4c4b-9cc1-e29d494966b2" />
+</Solution>
