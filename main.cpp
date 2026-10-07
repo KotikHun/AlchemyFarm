@@ -4,6 +4,7 @@
 #include <string>
 #include "Tile.hpp"
 #include "Inventory.hpp"
+#include "Player.hpp"
 
 // Инструменты
 enum class Tool {
@@ -41,25 +42,16 @@ int main()
     const sf::Color GRASS_COLOR(60, 130, 60);
     const sf::Color SOIL_COLOR(139, 90, 43);
 
-    // ============================================
-    // ИГРОК
-    // ============================================
-    const float PLAYER_SIZE = 24.f;
-    const float PLAYER_SPEED = 150.f;
-
-    sf::RectangleShape player({ PLAYER_SIZE, PLAYER_SIZE });
-    player.setFillColor(sf::Color(70, 130, 220));
-    player.setPosition({ 100.f, 100.f });
-
-    // Направление взгляда игрока (0, -1 = вверх)
-    int dirX = 0;
-    int dirY = -1;
+// ============================================
+// ИГРОК
+// ============================================
+    Player player;
 
     // Маркер — куда сейчас нацелен игрок (для отладки/визуализации)
     sf::RectangleShape targetMarker({ TILE_SIZE, TILE_SIZE });
     targetMarker.setFillColor(sf::Color(255, 255, 0, 100));  // полупрозрачный жёлтый
 
-    // ============================================
+// ============================================
 // ШРИФТ И UI
 // ============================================
     sf::Font font;
@@ -85,6 +77,7 @@ int main()
     leavesText.setCharacterSize(20);
     leavesText.setFillColor(sf::Color::White);
     leavesText.setPosition({ 10.f, 70.f });
+
 
     // ============================================
     // ХОТБАР
@@ -185,17 +178,17 @@ int main()
                     // === ВЗАИМОДЕЙСТВИЕ ===
 
                     // 1. Центр игрока
-                    sf::Vector2f pos = player.getPosition();
-                    float centerX = pos.x + PLAYER_SIZE / 2.f;
-                    float centerY = pos.y + PLAYER_SIZE / 2.f;
+                    sf::Vector2f pos = player.shape.getPosition();
+                    float centerX = pos.x + Player::SIZE / 2.f;
+                    float centerY = pos.y + Player::SIZE / 2.f;
 
                     // 2. Тайл под игроком
                     int tileX = static_cast<int>(centerX / TILE_SIZE);
                     int tileY = static_cast<int>(centerY / TILE_SIZE);
 
                     // 3. Тайл перед игроком
-                    int targetX = tileX + dirX;
-                    int targetY = tileY + dirY;
+                    int targetX = tileX + player.dirX;
+                    int targetY = tileY + player.dirY;
 
                     // 4. Проверка: не выходит ли за границы карты?
                     if (targetX >= 0 && targetX < MAP_WIDTH &&
@@ -263,27 +256,7 @@ int main()
         // ============================================
         // ОБНОВЛЕНИЕ
         // ============================================
-        sf::Vector2f pos = player.getPosition();
-        float dx = 0.f;
-        float dy = 0.f;
-
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) { dy -= PLAYER_SPEED * dt; dirX = 0; dirY = -1; }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) { dy += PLAYER_SPEED * dt; dirX = 0; dirY = 1; }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) { dx -= PLAYER_SPEED * dt; dirX = -1; dirY = 0; }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) { dx += PLAYER_SPEED * dt; dirX = 1; dirY = 0; }
-
-        pos.x += dx;
-        pos.y += dy;
-
-        float maxX = 800.f - PLAYER_SIZE;
-        float maxY = 600.f - PLAYER_SIZE;
-
-        if (pos.x < 0.f) pos.x = 0.f;
-        if (pos.y < 0.f) pos.y = 0.f;
-        if (pos.x > maxX) pos.x = maxX;
-        if (pos.y > maxY) pos.y = maxY;
-
-        player.setPosition(pos);
+        player.update(dt, 800.f, 600.f);
 
         // ============================================
         // ОТРИСОВКА
@@ -350,11 +323,11 @@ int main()
 
         // Маркер на тайле перед игроком
         {
-            sf::Vector2f ppos = player.getPosition();
-            float cx = ppos.x + PLAYER_SIZE / 2.f;
-            float cy = ppos.y + PLAYER_SIZE / 2.f;
-            int tx = static_cast<int>(cx / TILE_SIZE) + dirX;
-            int ty = static_cast<int>(cy / TILE_SIZE) + dirY;
+            sf::Vector2f ppos = player.shape.getPosition();
+            float cx = ppos.x + Player::SIZE / 2.f;
+            float cy = ppos.y + Player::SIZE / 2.f;
+            int tx = static_cast<int>(cx / TILE_SIZE) + player.dirX;
+            int ty = static_cast<int>(cy / TILE_SIZE) + player.dirY;
 
             if (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT)
             {
@@ -363,7 +336,7 @@ int main()
             }
         }
 
-        window.draw(player);
+        player.draw(window);
 
         // ============================================
 // ПОЛОСКА ДНЯ
