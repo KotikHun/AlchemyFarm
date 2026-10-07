@@ -109,23 +109,8 @@ int main()
             dayTimer = 0.f;
             currentDay++;
 
-            // Пройти по всем тайлам и вырастить политые растения
-            for (int y = 0; y < World::HEIGHT; y++)
-            {
-                for (int x = 0; x < World::WIDTH; x++)
-                {
-                    Tile& t = world.map[y][x];
-
-                    // Если полито и есть растение, но ещё не взрослое — растём
-                    if (t.watered && t.plantStage > 0 && t.plantStage < 3)
-                    {
-                        t.plantStage++;
-                    }
-
-                    // Сброс полива — утром надо полить снова
-                    t.watered = false;
-                }
-            }
+            // Растения растут
+            world.updateGrowth();
         }
 
         // ============================================

@@ -82,3 +82,27 @@ void World::draw(sf::RenderWindow& window)
         }
     }
 }
+
+
+// ============================================
+// РОСТ ПРИ НОВОМ ДНЕ
+// ============================================
+void World::updateGrowth()
+{
+    for (int y = 0; y < HEIGHT; y++)
+    {
+        for (int x = 0; x < WIDTH; x++)
+        {
+            Tile& t = map[y][x];
+
+            // Политые растения растут (до 3 стадии)
+            if (t.watered && t.plantStage > 0 && t.plantStage < 3)
+            {
+                t.plantStage++;
+            }
+
+            // Сброс полива — утром надо полить снова
+            t.watered = false;
+        }
+    }
+}

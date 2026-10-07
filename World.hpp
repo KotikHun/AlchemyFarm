@@ -41,4 +41,7 @@ struct World {
 
     // Отрисовка карты
     void draw(sf::RenderWindow& window);
+
+    // Рост растений при новом дне
+    void updateGrowth();
 };
