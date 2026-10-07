@@ -3,6 +3,7 @@
 #include <array>
 #include <string>
 #include "Tile.hpp"
+#include "Inventory.hpp"
 
 // Инструменты
 enum class Tool {
@@ -103,11 +104,7 @@ int main()
     // Слоты — один прямоугольник, переиспользуем
     sf::RectangleShape slotShape({ SLOT_SIZE, SLOT_SIZE });
 
-    // ============================================
-// ИНВЕНТАРЬ (пока просто счётчик)
-// ============================================
-    int seeds = 5;   // стартовые семена
-    int leaves = 0;  // собранные листья
+    Inventory inv;
 
     // ============================================
     // ДЕНЬ И ВРЕМЯ
@@ -223,7 +220,7 @@ int main()
                                     // Спелое — упал урожай
                                     if (t.plantStage == 3)
                                     {
-                                        leaves++;
+                                        inv.leaves++;
                                     }
                                     // Молодое — просто пропадает
                                     t.plantStage = 0;
@@ -233,10 +230,10 @@ int main()
 
                             case Tool::Seed:
                                 // Семечко: пустая грядка + есть семена → посадить
-                                if (t.type == 1 && t.plantStage == 0 && seeds > 0)
+                                if (t.type == 1 && t.plantStage == 0 && inv.seeds > 0)
                                 {
                                     t.plantStage = 1;
-                                    seeds--;
+                                    inv.seeds--;
                                 }
                                 break;
 
@@ -252,7 +249,7 @@ int main()
                                 // Рука: собрать спелое растение
                                 if (t.type == 1 && t.plantStage == 3)
                                 {
-                                    leaves++;
+                                    inv.leaves++;
                                     t.plantStage = 0;
                                     t.watered = false;
                                 }
@@ -384,10 +381,10 @@ int main()
         dayText.setString("Day: " + std::to_string(currentDay));
         window.draw(dayText);
 
-        seedsText.setString("Seeds: " + std::to_string(seeds));
+        seedsText.setString("Seeds: " + std::to_string(inv.seeds));
         window.draw(seedsText);
 
-        leavesText.setString("Leaves: " + std::to_string(leaves));
+        leavesText.setString("Leaves: " + std::to_string(inv.leaves));
         window.draw(leavesText);
 
         // ============================================
