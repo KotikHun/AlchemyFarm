@@ -34,3 +34,10 @@ commit-msg.txt
 
 # vcpkg
 vcpkg_installed/
+
+# Visual Studio build artifacts
+/x64/
+/AlchemyFarm/
+*.tlog
+*.idb
+*.recipe

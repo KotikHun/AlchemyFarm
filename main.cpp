@@ -5,9 +5,11 @@ int main()
 {
     sf::RenderWindow window(sf::VideoMode({ 800, 600 }), "Alchemy Farm");
 
-    sf::CircleShape circle(100.f);
-    circle.setFillColor(sf::Color::Green);
-    circle.setPosition({ 350.f, 200.f });
+    const float TILE_SIZE = 32.f;
+
+    sf::RectangleShape tile({ TILE_SIZE, TILE_SIZE });
+    tile.setFillColor(sf::Color(139, 90, 43));
+    tile.setPosition({ 384.f, 284.f });
 
     while (window.isOpen())
     {
@@ -18,7 +20,7 @@ int main()
         }
 
         window.clear(sf::Color::Black);
-        window.draw(circle);
+        window.draw(tile);
         window.display();
     }
 
