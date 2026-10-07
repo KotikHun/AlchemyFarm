@@ -2,6 +2,14 @@
 #include <optional>
 #include <array>
 
+// Тайл карты
+struct Tile {
+    int type = 0;          // 0 = трава, 1 = грядка
+    int plantStage = 0;    // 0 = пусто, 1 = семечко, 2 = росток, 3 = взрослое
+    bool watered = false;  // полито ли
+    int daysGrown = 0;     // сколько дней растёт
+};
+
 // Инструменты
 enum class Tool {
     Hoe,          // 0 — мотыга
@@ -21,14 +29,14 @@ int main()
     const float TILE_SIZE = 32.f;
 
     // 0 = трава, 1 = грядка
-    std::array<std::array<int, MAP_WIDTH>, MAP_HEIGHT> map;
+    std::array<std::array<Tile, MAP_WIDTH>, MAP_HEIGHT> map;
 
     // Заполняем всю карту травой
     for (int y = 0; y < MAP_HEIGHT; y++)
     {
         for (int x = 0; x < MAP_WIDTH; x++)
         {
-            map[y][x] = 0;
+            map[y][x].type = 0;
         }
     }
 
@@ -121,9 +129,9 @@ int main()
                         targetY >= 0 && targetY < MAP_HEIGHT)
                     {
                         // 5. Вскопать: трава (0) → грядка (1)
-                        if (map[targetY][targetX] == 0)
+                        if (map[targetY][targetX].type == 0)
                         {
-                            map[targetY][targetX] = 1;
+                            map[targetY][targetX].type = 1;
                         }
                     }
                 }
@@ -170,9 +178,9 @@ int main()
 
                 tileShape.setPosition({ px, py });
 
-                if (map[y][x] == 0)
+                if (map[y][x].type == 0)
                     tileShape.setFillColor(GRASS_COLOR);
-                else if (map[y][x] == 1)
+                else if (map[y][x].type == 1)
                     tileShape.setFillColor(SOIL_COLOR);
 
                 window.draw(tileShape);
