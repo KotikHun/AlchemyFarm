@@ -27,34 +27,6 @@ int main()
     sf::RectangleShape targetMarker({ World::TILE_SIZE, World::TILE_SIZE });
     targetMarker.setFillColor(sf::Color(255, 255, 0, 100));  // полупрозрачный жёлтый
 
-// ============================================
-// ШРИФТ И UI
-// ============================================
-    sf::Font font;
-    if (!font.openFromFile("assets/fonts/Roboto-Regular.ttf"))
-    {
-        return -1;  // если шрифт не загрузился — выход
-    }
-
-    // Текст: день
-    sf::Text dayText(font);
-    dayText.setCharacterSize(20);
-    dayText.setFillColor(sf::Color::White);
-    dayText.setPosition({ 10.f, 20.f });
-
-    // Текст: семечки
-    sf::Text seedsText(font);
-    seedsText.setCharacterSize(20);
-    seedsText.setFillColor(sf::Color::White);
-    seedsText.setPosition({ 10.f, 45.f });
-
-    // Текст: листья
-    sf::Text leavesText(font);
-    leavesText.setCharacterSize(20);
-    leavesText.setFillColor(sf::Color::White);
-    leavesText.setPosition({ 10.f, 70.f });
-
-
     // ============================================
     // ХОТБАР
     // ============================================
@@ -172,14 +144,7 @@ int main()
         // ============================================
 // ТЕКСТ UI
 // ============================================
-        dayText.setString("Day: " + std::to_string(currentDay));
-        window.draw(dayText);
-
-        seedsText.setString("Seeds: " + std::to_string(inv.seeds));
-        window.draw(seedsText);
-
-        leavesText.setString("Leaves: " + std::to_string(inv.leaves));
-        window.draw(leavesText);
+        ui.drawTexts(window, currentDay, inv.seeds, inv.leaves);
 
         // ============================================
 // ХОТБАР

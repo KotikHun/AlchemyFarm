@@ -1,15 +1,25 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <memory>
 #include "Tool.hpp"
 
 // ============================================
 // ИНТЕРФЕЙС (UI)
 // ============================================
-// Шаг 1: только хотбар. Без текста.
-// Постепенно добавим текст и полоску дня.
+// Хотбар + текст.
+// Шрифт загружается в конструкторе ДО создания текстов
+// (иначе sf::Text в SFML 3.0 теряет ссылку на шрифт).
 
 struct UI {
+    // Шрифт
+    sf::Font font;
+
+    // Тексты (создаются в конструкторе ПОСЛЕ загрузки шрифта)
+    std::unique_ptr<sf::Text> dayText;
+    std::unique_ptr<sf::Text> seedsText;
+    std::unique_ptr<sf::Text> leavesText;
+
     // Хотбар
     sf::RectangleShape hotbarBg;
     sf::RectangleShape slotShape;
@@ -25,4 +35,10 @@ struct UI {
 
     // Отрисовка хотбара
     void drawHotbar(sf::RenderWindow& window, Tool currentTool);
+
+    // Отрисовка текста (день, семечки, листья)
+    void drawTexts(sf::RenderWindow& window,
+        int currentDay,
+        int seeds,
+        int leaves);
 };

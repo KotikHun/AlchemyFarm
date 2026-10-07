@@ -1,10 +1,35 @@
 ﻿#include "UI.hpp"
+#include <iostream>
 
 // ============================================
 // КОНСТРУКТОР
 // ============================================
 UI::UI()
 {
+    // 1. СНАЧАЛА загружаем шрифт
+    if (!font.openFromFile("assets/fonts/Roboto-Regular.ttf"))
+    {
+        sf::err() << "FONT NOT LOADED" << std::endl;
+        return;
+    }
+
+    // 2. ПОТОМ создаём тексты с уже загруженным шрифтом
+    dayText = std::make_unique<sf::Text>(font);
+    dayText->setCharacterSize(20);
+    dayText->setFillColor(sf::Color::White);
+    dayText->setPosition({ 10.f, 20.f });
+
+    seedsText = std::make_unique<sf::Text>(font);
+    seedsText->setCharacterSize(20);
+    seedsText->setFillColor(sf::Color::White);
+    seedsText->setPosition({ 10.f, 45.f });
+
+    leavesText = std::make_unique<sf::Text>(font);
+    leavesText->setCharacterSize(20);
+    leavesText->setFillColor(sf::Color::White);
+    leavesText->setPosition({ 10.f, 70.f });
+
+    // 3. Хотбар
     float hotbarY = 600.f - SLOT_SIZE - HOTBAR_MARGIN;
     float hotbarWidth = HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS + 1) * SLOT_PADDING;
     float hotbarHeight = SLOT_SIZE + 2 * SLOT_PADDING;
@@ -42,5 +67,32 @@ void UI::drawHotbar(sf::RenderWindow& window, Tool currentTool)
             slotShape.setFillColor(sf::Color(80, 80, 80));
 
         window.draw(slotShape);
+    }
+}
+
+// ============================================
+// ОТРИСОВКА ТЕКСТА
+// ============================================
+void UI::drawTexts(sf::RenderWindow& window,
+    int currentDay,
+    int seeds,
+    int leaves)
+{
+    if (dayText)
+    {
+        dayText->setString("Day: " + std::to_string(currentDay));
+        window.draw(*dayText);
+    }
+
+    if (seedsText)
+    {
+        seedsText->setString("Seeds: " + std::to_string(seeds));
+        window.draw(*seedsText);
+    }
+
+    if (leavesText)
+    {
+        leavesText->setString("Leaves: " + std::to_string(leaves));
+        window.draw(*leavesText);
     }
 }
