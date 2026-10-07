@@ -2,6 +2,13 @@
 #include <optional>
 #include <array>
 
+// Инструменты
+enum class Tool {
+    Hoe,          // 0 — мотыга
+    Seed,         // 1 — семечко
+    WateringCan   // 2 — лейка
+};
+
 int main()
 {
     sf::RenderWindow window(sf::VideoMode({ 800, 600 }), "Alchemy Farm");
@@ -48,6 +55,23 @@ int main()
     sf::RectangleShape targetMarker({ TILE_SIZE, TILE_SIZE });
     targetMarker.setFillColor(sf::Color(255, 255, 0, 100));  // полупрозрачный жёлтый
 
+    // ============================================
+    // ХОТБАР
+    // ============================================
+    Tool currentTool = Tool::Hoe;  // по умолчанию — мотыга
+
+    const float SLOT_SIZE = 50.f;
+    const float SLOT_PADDING = 5.f;
+    const float HOTBAR_Y = 600.f - SLOT_SIZE - 10.f;  // 10 пикселей от низа
+
+    // Фон хотбара — тёмная полоса
+    sf::RectangleShape hotbarBg({ 3 * SLOT_SIZE + 4 * SLOT_PADDING, SLOT_SIZE + 2 * SLOT_PADDING });
+    hotbarBg.setFillColor(sf::Color(40, 40, 40));
+    hotbarBg.setPosition({ 10.f, HOTBAR_Y - SLOT_PADDING });
+
+    // Слоты — один прямоугольник, переиспользуем
+    sf::RectangleShape slotShape({ SLOT_SIZE, SLOT_SIZE });
+
     sf::Clock clock;
 
     // ============================================
@@ -68,6 +92,13 @@ int main()
             // Одноразовое нажатие клавиши
             if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
             {
+                if (keyPressed->code == sf::Keyboard::Key::Num1)
+                    currentTool = Tool::Hoe;
+                else if (keyPressed->code == sf::Keyboard::Key::Num2)
+                    currentTool = Tool::Seed;
+                else if (keyPressed->code == sf::Keyboard::Key::Num3)
+                    currentTool = Tool::WateringCan;
+
                 if (keyPressed->code == sf::Keyboard::Key::E)
                 {
                     // === ВЗАИМОДЕЙСТВИЕ ===
@@ -164,6 +195,31 @@ int main()
         }
 
         window.draw(player);
+
+        // ============================================
+        // ХОТБАР
+        // ============================================
+        window.draw(hotbarBg);
+
+        for (int i = 0; i < 3; i++)
+        {
+            float slotX = 10.f + SLOT_PADDING + i * (SLOT_SIZE + SLOT_PADDING);
+            float slotY = HOTBAR_Y;
+            slotShape.setPosition({ slotX, slotY });
+
+            // Выбранный слот — светлый, остальные — тёмные
+            bool isSelected = false;
+            if (i == 0 && currentTool == Tool::Hoe) isSelected = true;
+            if (i == 1 && currentTool == Tool::Seed) isSelected = true;
+            if (i == 2 && currentTool == Tool::WateringCan) isSelected = true;
+
+            if (isSelected)
+                slotShape.setFillColor(sf::Color(200, 200, 100));  // жёлтоватый
+            else
+                slotShape.setFillColor(sf::Color(80, 80, 80));     // серый
+
+            window.draw(slotShape);
+        }
 
         window.display();
     }
