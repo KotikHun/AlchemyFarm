@@ -7,24 +7,23 @@ int main()
     sf::RenderWindow window(sf::VideoMode({ 800, 600 }), "Alchemy Farm");
 
     // ============================================
-    // КАРТА
-    // ============================================
-    const int MAP_WIDTH = 10;
-    const int MAP_HEIGHT = 10;
+ // КАРТА
+ // ============================================
+    const int MAP_WIDTH = 30;
+    const int MAP_HEIGHT = 25;
     const float TILE_SIZE = 32.f;
 
-    std::array<std::array<int, MAP_WIDTH>, MAP_HEIGHT> map = { {
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 1, 1, 0, 0, 0, 0, 0, 0},
-        {0, 0, 1, 1, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    } };
+    // 0 = трава, 1 = грядка
+    std::array<std::array<int, MAP_WIDTH>, MAP_HEIGHT> map;
+
+    // Заполняем всю карту травой
+    for (int y = 0; y < MAP_HEIGHT; y++)
+    {
+        for (int x = 0; x < MAP_WIDTH; x++)
+        {
+            map[y][x] = 0;
+        }
+    }
 
     sf::RectangleShape tileShape({ TILE_SIZE, TILE_SIZE });
 
