@@ -2,14 +2,7 @@
 #include <optional>
 #include <array>
 #include <string>
-
-// Тайл карты
-struct Tile {
-    int type = 0;          // 0 = трава, 1 = грядка
-    int plantStage = 0;    // 0 = пусто, 1 = семечко, 2 = росток, 3 = взрослое
-    bool watered = false;  // полито ли
-    int daysGrown = 0;     // сколько дней растёт
-};
+#include "Tile.hpp"
 
 // Инструменты
 enum class Tool {
