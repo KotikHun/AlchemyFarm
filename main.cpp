@@ -80,6 +80,12 @@ int main()
     // Слоты — один прямоугольник, переиспользуем
     sf::RectangleShape slotShape({ SLOT_SIZE, SLOT_SIZE });
 
+    // ============================================
+// ИНВЕНТАРЬ (пока просто счётчик)
+// ============================================
+    int seeds = 5;   // стартовые семена
+    int leaves = 0;  // собранные листья
+
     sf::Clock clock;
 
     // ============================================
@@ -128,10 +134,34 @@ int main()
                     if (targetX >= 0 && targetX < MAP_WIDTH &&
                         targetY >= 0 && targetY < MAP_HEIGHT)
                     {
-                        // 5. Вскопать: трава (0) → грядка (1)
-                        if (map[targetY][targetX].type == 0)
+                        // 5. Ссылка на тайл, с которым работаем
+                        Tile& t = map[targetY][targetX];
+
+                        // 6. Действие зависит от выбранного инструмента
+                        switch (currentTool)
                         {
-                            map[targetY][targetX].type = 1;
+                        case Tool::Hoe:
+                            // Мотыга: трава (0) → грядка (1)
+                            if (t.type == 0)
+                            {
+                                t.type = 1;
+                            }
+                            break;
+
+                        case Tool::Seed:
+                            // Семечко: пустая грядка + есть семена → посадить
+                            if (t.type == 1 && t.plantStage == 0 && seeds > 0)
+                            {
+                                t.plantStage = 1;
+                                seeds--;
+                            }
+                            break;
+
+                        case Tool::WateringCan:
+                            // Лейка: любая вскопанная грядка, не политая → полить
+                            if (t.type == 1 && !t.watered)
+                                t.watered = true;
+                            break;
                         }
                     }
                 }
@@ -178,12 +208,37 @@ int main()
 
                 tileShape.setPosition({ px, py });
 
-                if (map[y][x].type == 0)
+                // Ссылка на тайл
+                Tile& t = map[y][x];
+
+                // Цвет тайла зависит от типа и полива
+                if (t.type == 0)
+                {
                     tileShape.setFillColor(GRASS_COLOR);
-                else if (map[y][x].type == 1)
-                    tileShape.setFillColor(SOIL_COLOR);
+                }
+                else if (t.type == 1)
+                {
+                    if (t.watered)
+                        tileShape.setFillColor(sf::Color(100, 65, 30));  // тёмно-коричневый
+                    else
+                        tileShape.setFillColor(SOIL_COLOR);
+                }
 
                 window.draw(tileShape);
+
+                // Растение (если посажено)
+                if (t.plantStage > 0)
+                {
+                    float cx = px + TILE_SIZE / 2.f;
+                    float cy = py + TILE_SIZE / 2.f;
+                    float radius = 6.f;  // пока один размер
+
+                    sf::CircleShape plant(radius);
+                    plant.setFillColor(sf::Color(100, 200, 100));  // салатовый
+                    plant.setOrigin({ radius, radius });             // центр круга — в центре
+                    plant.setPosition({ cx, cy });                   // в центр тайла
+                    window.draw(plant);
+                }
             }
         }
 
