@@ -6,34 +6,16 @@
 #include "Inventory.hpp"
 #include "Player.hpp"
 #include "Tool.hpp"
+#include "World.hpp"
 
 int main()
 {
     sf::RenderWindow window(sf::VideoMode({ 800, 600 }), "Alchemy Farm");
 
     // ============================================
- // КАРТА
- // ============================================
-    const int MAP_WIDTH = 30;
-    const int MAP_HEIGHT = 25;
-    const float TILE_SIZE = 32.f;
-
-    // 0 = трава, 1 = грядка
-    std::array<std::array<Tile, MAP_WIDTH>, MAP_HEIGHT> map;
-
-    // Заполняем всю карту травой
-    for (int y = 0; y < MAP_HEIGHT; y++)
-    {
-        for (int x = 0; x < MAP_WIDTH; x++)
-        {
-            map[y][x].type = 0;
-        }
-    }
-
-    sf::RectangleShape tileShape({ TILE_SIZE, TILE_SIZE });
-
-    const sf::Color GRASS_COLOR(60, 130, 60);
-    const sf::Color SOIL_COLOR(139, 90, 43);
+    // КАРТА
+    // ============================================
+    World world;
 
 // ============================================
 // ИГРОК
@@ -41,7 +23,7 @@ int main()
     Player player;
 
     // Маркер — куда сейчас нацелен игрок (для отладки/визуализации)
-    sf::RectangleShape targetMarker({ TILE_SIZE, TILE_SIZE });
+    sf::RectangleShape targetMarker({ World::TILE_SIZE, World::TILE_SIZE });
     targetMarker.setFillColor(sf::Color(255, 255, 0, 100));  // полупрозрачный жёлтый
 
 // ============================================
@@ -128,11 +110,11 @@ int main()
             currentDay++;
 
             // Пройти по всем тайлам и вырастить политые растения
-            for (int y = 0; y < MAP_HEIGHT; y++)
+            for (int y = 0; y < World::HEIGHT; y++)
             {
-                for (int x = 0; x < MAP_WIDTH; x++)
+                for (int x = 0; x < World::WIDTH; x++)
                 {
-                    Tile& t = map[y][x];
+                    Tile& t = world.map[y][x];
 
                     // Если полито и есть растение, но ещё не взрослое — растём
                     if (t.watered && t.plantStage > 0 && t.plantStage < 3)
@@ -176,19 +158,19 @@ int main()
                     float centerY = pos.y + Player::SIZE / 2.f;
 
                     // 2. Тайл под игроком
-                    int tileX = static_cast<int>(centerX / TILE_SIZE);
-                    int tileY = static_cast<int>(centerY / TILE_SIZE);
+                    int tileX = static_cast<int>(centerX / World::TILE_SIZE);
+                    int tileY = static_cast<int>(centerY / World::TILE_SIZE);
 
                     // 3. Тайл перед игроком
                     int targetX = tileX + player.dirX;
                     int targetY = tileY + player.dirY;
 
                     // 4. Проверка: не выходит ли за границы карты?
-                    if (targetX >= 0 && targetX < MAP_WIDTH &&
-                        targetY >= 0 && targetY < MAP_HEIGHT)
+                    if (targetX >= 0 && targetX < World::WIDTH &&
+                        targetY >= 0 && targetY < World::HEIGHT)
                     {
                         // 5. Ссылка на тайл, с которым работаем
-                        Tile& t = map[targetY][targetX];
+                        Tile& t = world.map[targetY][targetX];
 
                            // 6. Действие зависит от выбранного инструмента
                             switch (currentTool)
@@ -257,74 +239,18 @@ int main()
         window.clear(sf::Color::Black);
 
         // Карта
-        for (int y = 0; y < MAP_HEIGHT; y++)
-        {
-            for (int x = 0; x < MAP_WIDTH; x++)
-            {
-                float px = x * TILE_SIZE;
-                float py = y * TILE_SIZE;
-
-                tileShape.setPosition({ px, py });
-
-                // Ссылка на тайл
-                Tile& t = map[y][x];
-
-                // Цвет тайла зависит от типа и полива
-                if (t.type == 0)
-                {
-                    tileShape.setFillColor(GRASS_COLOR);
-                }
-                else if (t.type == 1)
-                {
-                    if (t.watered)
-                        tileShape.setFillColor(sf::Color(100, 65, 30));  // тёмно-коричневый
-                    else
-                        tileShape.setFillColor(SOIL_COLOR);
-                }
-
-                window.draw(tileShape);
-
-                // Растение (если посажено)
-                if (t.plantStage > 0)
-                {
-                    float cx = px + TILE_SIZE / 2.f;
-                    float cy = py + TILE_SIZE / 2.f;
-
-                    // Размер и цвет зависят от стадии
-                    float radius = 4.f;
-                    sf::Color plantColor(60, 130, 60);  // тёмно-зелёный (семечко)
-
-                    if (t.plantStage == 2)
-                    {
-                        radius = 7.f;
-                        plantColor = sf::Color(100, 180, 100);  // средне-зелёный
-                    }
-                    else if (t.plantStage == 3)
-                    {
-                        radius = 10.f;
-                        plantColor = sf::Color(150, 220, 100);  // ярко-салатовый (спелое)
-                    }
-
-                    sf::CircleShape plant(radius);
-                    plant.setFillColor(plantColor);
-                    plant.setOrigin({ radius, radius });
-                    plant.setPosition({ cx, cy });
-                    window.draw(plant);
-                }
-            }
-        }
-
+        world.draw(window);
         // Маркер на тайле перед игроком
         {
             sf::Vector2f ppos = player.shape.getPosition();
             float cx = ppos.x + Player::SIZE / 2.f;
             float cy = ppos.y + Player::SIZE / 2.f;
-            int tx = static_cast<int>(cx / TILE_SIZE) + player.dirX;
-            int ty = static_cast<int>(cy / TILE_SIZE) + player.dirY;
+            int tx = static_cast<int>(cx / World::TILE_SIZE) + player.dirX;
+            int ty = static_cast<int>(cy / World::TILE_SIZE) + player.dirY;
 
-            if (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT)
+            if (tx >= 0 && tx < World::WIDTH && ty >= 0 && ty < World::HEIGHT)
             {
-                targetMarker.setPosition({ tx * TILE_SIZE, ty * TILE_SIZE });
+                targetMarker.setPosition({ tx * World::TILE_SIZE, ty * World::TILE_SIZE });
                 window.draw(targetMarker);
             }
         }
