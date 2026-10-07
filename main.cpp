@@ -86,6 +86,22 @@ int main()
     int seeds = 5;   // стартовые семена
     int leaves = 0;  // собранные листья
 
+    // ============================================
+    // ДЕНЬ И ВРЕМЯ
+    // ============================================
+    const float DAY_LENGTH = 60.f;  // 30 секунд = 1 день (для теста)
+    float dayTimer = 0.f;           // сколько секунд прошло с начала дня
+    int currentDay = 1;             // номер текущего дня
+
+    // Полоска времени вверху экрана
+    sf::RectangleShape dayBarBg({ 800.f, 8.f });
+    dayBarBg.setFillColor(sf::Color(40, 40, 40));
+    dayBarBg.setPosition({ 0.f, 0.f });
+
+    sf::RectangleShape dayBar({ 800.f, 8.f });
+    dayBar.setFillColor(sf::Color(220, 180, 60));  // жёлтый
+    dayBar.setPosition({ 0.f, 0.f });
+
     sf::Clock clock;
 
     // ============================================
@@ -94,6 +110,35 @@ int main()
     while (window.isOpen())
     {
         float dt = clock.restart().asSeconds();
+
+        // ============================================
+// ДЕНЬ
+// ============================================
+        dayTimer += dt;
+
+        if (dayTimer >= DAY_LENGTH)
+        {
+            dayTimer = 0.f;
+            currentDay++;
+
+            // Пройти по всем тайлам и вырастить политые растения
+            for (int y = 0; y < MAP_HEIGHT; y++)
+            {
+                for (int x = 0; x < MAP_WIDTH; x++)
+                {
+                    Tile& t = map[y][x];
+
+                    // Если полито и есть растение, но ещё не взрослое — растём
+                    if (t.watered && t.plantStage > 0 && t.plantStage < 3)
+                    {
+                        t.plantStage++;
+                    }
+
+                    // Сброс полива — утром надо полить снова
+                    t.watered = false;
+                }
+            }
+        }
 
         // ============================================
         // СОБЫТИЯ
@@ -231,12 +276,26 @@ int main()
                 {
                     float cx = px + TILE_SIZE / 2.f;
                     float cy = py + TILE_SIZE / 2.f;
-                    float radius = 6.f;  // пока один размер
+
+                    // Размер и цвет зависят от стадии
+                    float radius = 4.f;
+                    sf::Color plantColor(60, 130, 60);  // тёмно-зелёный (семечко)
+
+                    if (t.plantStage == 2)
+                    {
+                        radius = 7.f;
+                        plantColor = sf::Color(100, 180, 100);  // средне-зелёный
+                    }
+                    else if (t.plantStage == 3)
+                    {
+                        radius = 10.f;
+                        plantColor = sf::Color(150, 220, 100);  // ярко-салатовый (спелое)
+                    }
 
                     sf::CircleShape plant(radius);
-                    plant.setFillColor(sf::Color(100, 200, 100));  // салатовый
-                    plant.setOrigin({ radius, radius });             // центр круга — в центре
-                    plant.setPosition({ cx, cy });                   // в центр тайла
+                    plant.setFillColor(plantColor);
+                    plant.setOrigin({ radius, radius });
+                    plant.setPosition({ cx, cy });
                     window.draw(plant);
                 }
             }
@@ -258,6 +317,16 @@ int main()
         }
 
         window.draw(player);
+
+        // ============================================
+// ПОЛОСКА ДНЯ
+// ============================================
+        window.draw(dayBarBg);
+
+        // Заполнение = сколько прошло от дня
+        float dayProgress = dayTimer / DAY_LENGTH;
+        dayBar.setSize({ 800.f * dayProgress, 8.f });
+        window.draw(dayBar);
 
         // ============================================
         // ХОТБАР
