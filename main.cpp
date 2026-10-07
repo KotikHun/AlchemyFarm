@@ -7,6 +7,7 @@
 #include "Player.hpp"
 #include "Tool.hpp"
 #include "World.hpp"
+#include "UI.hpp"
 
 int main()
 {
@@ -59,21 +60,9 @@ int main()
     // ============================================
     Tool currentTool = Tool::Hoe;  // по умолчанию — мотыга
 
-    const float SLOT_SIZE = 50.f;
-    const float SLOT_PADDING = 5.f;
-    const float HOTBAR_Y = 600.f - SLOT_SIZE - 10.f;
-    const int HOTBAR_SLOTS = 4;  // было 3, стало 4
-
-    // Фон хотбара — тёмная полоса
-    sf::RectangleShape hotbarBg({ HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS + 1) * SLOT_PADDING, SLOT_SIZE + 2 * SLOT_PADDING });
-    hotbarBg.setFillColor(sf::Color(40, 40, 40));
-    hotbarBg.setPosition({ 10.f, HOTBAR_Y - SLOT_PADDING });
-
-    // Слоты — один прямоугольник, переиспользуем
-    sf::RectangleShape slotShape({ SLOT_SIZE, SLOT_SIZE });
-
+   
     Inventory inv;
-
+    UI ui;
     // ============================================
     // ДЕНЬ И ВРЕМЯ
     // ============================================
@@ -193,30 +182,9 @@ int main()
         window.draw(leavesText);
 
         // ============================================
-        // ХОТБАР
-        // ============================================
-        window.draw(hotbarBg);
-
-        for (int i = 0; i < HOTBAR_SLOTS; i++)
-        {
-            float slotX = 10.f + SLOT_PADDING + i * (SLOT_SIZE + SLOT_PADDING);
-            float slotY = HOTBAR_Y;
-            slotShape.setPosition({ slotX, slotY });
-
-            // Выбранный слот — светлый, остальные — тёмные
-            bool isSelected = false;
-            if (i == 0 && currentTool == Tool::Hoe) isSelected = true;
-            if (i == 1 && currentTool == Tool::Seed) isSelected = true;
-            if (i == 2 && currentTool == Tool::WateringCan) isSelected = true;
-            if (i == 3 && currentTool == Tool::Hand) isSelected = true;
-
-            if (isSelected)
-                slotShape.setFillColor(sf::Color(200, 200, 100));  // жёлтоватый
-            else
-                slotShape.setFillColor(sf::Color(80, 80, 80));     // серый
-
-            window.draw(slotShape);
-        }
+// ХОТБАР
+// ============================================
+        ui.drawHotbar(window, currentTool);
 
         window.display();
     }
