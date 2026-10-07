@@ -5,14 +5,7 @@
 #include "Tile.hpp"
 #include "Inventory.hpp"
 #include "Player.hpp"
-
-// Инструменты
-enum class Tool {
-    Hoe,          // 0 — мотыга
-    Seed,         // 1 — семечко
-    WateringCan,   // 2 — лейка
-    Hand          // 3 — рука (сбор урожая)
-};
+#include "Tool.hpp"
 
 int main()
 {
