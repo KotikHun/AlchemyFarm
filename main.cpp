@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <optional>
 #include <array>
+#include <string>
 
 // Тайл карты
 struct Tile {
@@ -14,7 +15,8 @@ struct Tile {
 enum class Tool {
     Hoe,          // 0 — мотыга
     Seed,         // 1 — семечко
-    WateringCan   // 2 — лейка
+    WateringCan,   // 2 — лейка
+    Hand          // 3 — рука (сбор урожая)
 };
 
 int main()
@@ -64,16 +66,44 @@ int main()
     targetMarker.setFillColor(sf::Color(255, 255, 0, 100));  // полупрозрачный жёлтый
 
     // ============================================
+// ШРИФТ И UI
+// ============================================
+    sf::Font font;
+    if (!font.openFromFile("assets/fonts/Roboto-Regular.ttf"))
+    {
+        return -1;  // если шрифт не загрузился — выход
+    }
+
+    // Текст: день
+    sf::Text dayText(font);
+    dayText.setCharacterSize(20);
+    dayText.setFillColor(sf::Color::White);
+    dayText.setPosition({ 10.f, 20.f });
+
+    // Текст: семечки
+    sf::Text seedsText(font);
+    seedsText.setCharacterSize(20);
+    seedsText.setFillColor(sf::Color::White);
+    seedsText.setPosition({ 10.f, 45.f });
+
+    // Текст: листья
+    sf::Text leavesText(font);
+    leavesText.setCharacterSize(20);
+    leavesText.setFillColor(sf::Color::White);
+    leavesText.setPosition({ 10.f, 70.f });
+
+    // ============================================
     // ХОТБАР
     // ============================================
     Tool currentTool = Tool::Hoe;  // по умолчанию — мотыга
 
     const float SLOT_SIZE = 50.f;
     const float SLOT_PADDING = 5.f;
-    const float HOTBAR_Y = 600.f - SLOT_SIZE - 10.f;  // 10 пикселей от низа
+    const float HOTBAR_Y = 600.f - SLOT_SIZE - 10.f;
+    const int HOTBAR_SLOTS = 4;  // было 3, стало 4
 
     // Фон хотбара — тёмная полоса
-    sf::RectangleShape hotbarBg({ 3 * SLOT_SIZE + 4 * SLOT_PADDING, SLOT_SIZE + 2 * SLOT_PADDING });
+    sf::RectangleShape hotbarBg({ HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS + 1) * SLOT_PADDING, SLOT_SIZE + 2 * SLOT_PADDING });
     hotbarBg.setFillColor(sf::Color(40, 40, 40));
     hotbarBg.setPosition({ 10.f, HOTBAR_Y - SLOT_PADDING });
 
@@ -157,6 +187,8 @@ int main()
                     currentTool = Tool::Seed;
                 else if (keyPressed->code == sf::Keyboard::Key::Num3)
                     currentTool = Tool::WateringCan;
+                else if (keyPressed->code == sf::Keyboard::Key::Num4)
+                    currentTool = Tool::Hand;
 
                 if (keyPressed->code == sf::Keyboard::Key::E)
                 {
@@ -182,32 +214,57 @@ int main()
                         // 5. Ссылка на тайл, с которым работаем
                         Tile& t = map[targetY][targetX];
 
-                        // 6. Действие зависит от выбранного инструмента
-                        switch (currentTool)
-                        {
-                        case Tool::Hoe:
-                            // Мотыга: трава (0) → грядка (1)
-                            if (t.type == 0)
+                           // 6. Действие зависит от выбранного инструмента
+                            switch (currentTool)
                             {
-                                t.type = 1;
-                            }
-                            break;
+                            case Tool::Hoe:
+                                // Мотыга: 
+                                // - трава → грядка
+                                // - грядка с растением → убрать
+                                if (t.type == 0)
+                                {
+                                    t.type = 1;
+                                }
+                                else if (t.type == 1 && t.plantStage > 0)
+                                {
+                                    // Спелое — упал урожай
+                                    if (t.plantStage == 3)
+                                    {
+                                        leaves++;
+                                    }
+                                    // Молодое — просто пропадает
+                                    t.plantStage = 0;
+                                    t.watered = false;
+                                }
+                                break;
 
-                        case Tool::Seed:
-                            // Семечко: пустая грядка + есть семена → посадить
-                            if (t.type == 1 && t.plantStage == 0 && seeds > 0)
-                            {
-                                t.plantStage = 1;
-                                seeds--;
-                            }
-                            break;
+                            case Tool::Seed:
+                                // Семечко: пустая грядка + есть семена → посадить
+                                if (t.type == 1 && t.plantStage == 0 && seeds > 0)
+                                {
+                                    t.plantStage = 1;
+                                    seeds--;
+                                }
+                                break;
 
-                        case Tool::WateringCan:
-                            // Лейка: любая вскопанная грядка, не политая → полить
-                            if (t.type == 1 && !t.watered)
-                                t.watered = true;
-                            break;
-                        }
+                            case Tool::WateringCan:
+                                // Лейка: любая вскопанная грядка, не политая → полить
+                                if (t.type == 1 && !t.watered)
+                                {
+                                    t.watered = true;
+                                }
+                                break;
+
+                            case Tool::Hand:
+                                // Рука: собрать спелое растение
+                                if (t.type == 1 && t.plantStage == 3)
+                                {
+                                    leaves++;
+                                    t.plantStage = 0;
+                                    t.watered = false;
+                                }
+                                break;
+                            }
                     }
                 }
             }
@@ -329,11 +386,23 @@ int main()
         window.draw(dayBar);
 
         // ============================================
+// ТЕКСТ UI
+// ============================================
+        dayText.setString("Day: " + std::to_string(currentDay));
+        window.draw(dayText);
+
+        seedsText.setString("Seeds: " + std::to_string(seeds));
+        window.draw(seedsText);
+
+        leavesText.setString("Leaves: " + std::to_string(leaves));
+        window.draw(leavesText);
+
+        // ============================================
         // ХОТБАР
         // ============================================
         window.draw(hotbarBg);
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < HOTBAR_SLOTS; i++)
         {
             float slotX = 10.f + SLOT_PADDING + i * (SLOT_SIZE + SLOT_PADDING);
             float slotY = HOTBAR_Y;
@@ -344,6 +413,7 @@ int main()
             if (i == 0 && currentTool == Tool::Hoe) isSelected = true;
             if (i == 1 && currentTool == Tool::Seed) isSelected = true;
             if (i == 2 && currentTool == Tool::WateringCan) isSelected = true;
+            if (i == 3 && currentTool == Tool::Hand) isSelected = true;
 
             if (isSelected)
                 slotShape.setFillColor(sf::Color(200, 200, 100));  // жёлтоватый
