@@ -3,6 +3,9 @@
 #include <SFML/Graphics.hpp>
 #include <array>
 #include "Tile.hpp"
+#include "Player.hpp"
+#include "Inventory.hpp"
+#include "Tool.hpp"
 
 // ============================================
 // ИГРОВОЙ МИР (КАРТА)
@@ -44,4 +47,11 @@ struct World {
 
     // Рост растений при новом дне
     void updateGrowth();
+
+    // Взаимодействие с тайлом перед игроком
+    // player — откуда смотрит игрок
+    // tool — чем действуем
+    // inv — меняем счётчики (семечки, листья)
+    void interact(const Player& player, Tool tool, Inventory& inv);
+
 };

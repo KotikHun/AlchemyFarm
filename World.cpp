@@ -106,3 +106,85 @@ void World::updateGrowth()
         }
     }
 }
+
+
+// ============================================
+// ВЗАИМОДЕЙСТВИЕ
+// ============================================
+void World::interact(const Player& player, Tool tool, Inventory& inv)
+{
+    // 1. Центр игрока
+    sf::Vector2f pos = player.shape.getPosition();
+    float centerX = pos.x + Player::SIZE / 2.f;
+    float centerY = pos.y + Player::SIZE / 2.f;
+
+    // 2. Тайл под игроком
+    int tileX = static_cast<int>(centerX / TILE_SIZE);
+    int tileY = static_cast<int>(centerY / TILE_SIZE);
+
+    // 3. Тайл перед игроком
+    int targetX = tileX + player.dirX;
+    int targetY = tileY + player.dirY;
+
+    // 4. Проверка границ карты
+    if (targetX < 0 || targetX >= WIDTH ||
+        targetY < 0 || targetY >= HEIGHT)
+    {
+        return;  // вышли за карту — ничего не делаем
+    }
+
+    // 5. Ссылка на тайл
+    Tile& t = map[targetY][targetX];
+
+    // 6. Действие зависит от инструмента
+    switch (tool)
+    {
+    case Tool::Hoe:
+        // Мотыга:
+        // - трава → грядка
+        // - грядка с растением → убрать
+        if (t.type == 0)
+        {
+            t.type = 1;
+        }
+        else if (t.type == 1 && t.plantStage > 0)
+        {
+            // Спелое — упал урожай
+            if (t.plantStage == 3)
+            {
+                inv.leaves++;
+            }
+            // Молодое — просто пропадает
+            t.plantStage = 0;
+            t.watered = false;
+        }
+        break;
+
+    case Tool::Seed:
+        // Семечко: пустая грядка + есть семена → посадить
+        if (t.type == 1 && t.plantStage == 0 && inv.seeds > 0)
+        {
+            t.plantStage = 1;
+            inv.seeds--;
+        }
+        break;
+
+    case Tool::WateringCan:
+        // Лейка: любая вскопанная грядка, не политая → полить
+        if (t.type == 1 && !t.watered)
+        {
+            t.watered = true;
+        }
+        break;
+
+    case Tool::Hand:
+        // Рука: собрать спелое растение
+        if (t.type == 1 && t.plantStage == 3)
+        {
+            inv.leaves++;
+            t.plantStage = 0;
+            t.watered = false;
+        }
+        break;
+    }
+}
