@@ -1,4 +1,5 @@
 #include "Game.hpp"
+#include <iostream>
 
 // ============================================
 // КОНСТРУКТОР
@@ -6,6 +7,12 @@
 Game::Game()
     : window(sf::VideoMode({ 800, 600 }), "Alchemy Farm")
 {
+    // Загружаем базу предметов
+    if (!itemDB.loadFromFile("data/items.json"))
+    {
+        std::cerr << "GAME: items.json NOT LOADED" << std::endl;
+    }
+
     // Маркер тайла перед игроком
     targetMarker.setSize({ World::TILE_SIZE, World::TILE_SIZE });
     targetMarker.setFillColor(sf::Color(255, 255, 0, 100));

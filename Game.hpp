@@ -6,6 +6,7 @@
 #include "Inventory.hpp"
 #include "UI.hpp"
 #include "Tool.hpp"
+#include "ItemDatabase.hpp"
 
 // ============================================
 // ИГРА
@@ -15,6 +16,9 @@
 struct Game {
     // Окно
     sf::RenderWindow window;
+
+    // База предметов
+    ItemDatabase itemDB;
 
     // Системы
     World world;

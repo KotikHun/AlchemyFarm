@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "id": "hoe",
+      "name": "Мотыга",
+      "maxStack": 1,
+      "isTool": true
+    },
+    {
+      "id": "watering_can",
+      "name": "Лейка",
+      "maxStack": 1,
+      "isTool": true
+    },
+    {
+      "id": "seeds",
+      "name": "Семена",
+      "maxStack": 99,
+      "isTool": false
+    },
+    {
+      "id": "leaves",
+      "name": "Листья",
+      "maxStack": 99,
+      "isTool": false
+    }
+  ]
+}

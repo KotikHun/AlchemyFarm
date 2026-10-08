@@ -155,6 +155,7 @@
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Game.hpp" />
+    <ClCompile Include="ItemDatabase.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="UI.cpp" />
@@ -162,6 +163,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inventory.hpp" />
+    <ClInclude Include="Item.hpp" />
+    <ClInclude Include="ItemDatabase.hpp" />
     <ClInclude Include="Player.hpp" />
     <ClInclude Include="Tile.hpp" />
     <ClInclude Include="Tool.hpp" />
