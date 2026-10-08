@@ -18,9 +18,9 @@ int main()
     // ============================================
     World world;
 
-// ============================================
-// ИГРОК
-// ============================================
+    // ============================================
+    // ИГРОК
+    // ============================================
     Player player;
 
     // Маркер — куда сейчас нацелен игрок (для отладки/визуализации)
@@ -42,14 +42,7 @@ int main()
     float dayTimer = 0.f;           // сколько секунд прошло с начала дня
     int currentDay = 1;             // номер текущего дня
 
-    // Полоска времени вверху экрана
-    sf::RectangleShape dayBarBg({ 800.f, 8.f });
-    dayBarBg.setFillColor(sf::Color(40, 40, 40));
-    dayBarBg.setPosition({ 0.f, 0.f });
-
-    sf::RectangleShape dayBar({ 800.f, 8.f });
-    dayBar.setFillColor(sf::Color(220, 180, 60));  // жёлтый
-    dayBar.setPosition({ 0.f, 0.f });
+    
 
     sf::Clock clock;
 
@@ -61,8 +54,8 @@ int main()
         float dt = clock.restart().asSeconds();
 
         // ============================================
-// ДЕНЬ
-// ============================================
+        // ДЕНЬ
+        // ============================================
         dayTimer += dt;
 
         if (dayTimer >= DAY_LENGTH)
@@ -132,23 +125,11 @@ int main()
         player.draw(window);
 
         // ============================================
-// ПОЛОСКА ДНЯ
-// ============================================
-        window.draw(dayBarBg);
-
-        // Заполнение = сколько прошло от дня
+        // ТЕКСТ UI И ХОТБАР
+        // ============================================
         float dayProgress = dayTimer / DAY_LENGTH;
-        dayBar.setSize({ 800.f * dayProgress, 8.f });
-        window.draw(dayBar);
-
-        // ============================================
-// ТЕКСТ UI
-// ============================================
+        ui.drawDayBar(window, dayProgress);
         ui.drawTexts(window, currentDay, inv.seeds, inv.leaves);
-
-        // ============================================
-// ХОТБАР
-// ============================================
         ui.drawHotbar(window, currentTool);
 
         window.display();

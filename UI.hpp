@@ -24,6 +24,10 @@ struct UI {
     sf::RectangleShape hotbarBg;
     sf::RectangleShape slotShape;
 
+    // Полоска дня
+    sf::RectangleShape dayBarBg;
+    sf::RectangleShape dayBar;
+
     // Константы
     static constexpr int HOTBAR_SLOTS = 4;
     static constexpr float SLOT_SIZE = 50.f;
@@ -41,4 +45,7 @@ struct UI {
         int currentDay,
         int seeds,
         int leaves);
+    // Отрисовка полоски дня
+// dayProgress — от 0.0 до 1.0
+    void drawDayBar(sf::RenderWindow& window, float dayProgress);
 };

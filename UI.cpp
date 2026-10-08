@@ -39,6 +39,15 @@ UI::UI()
     hotbarBg.setPosition({ HOTBAR_MARGIN, hotbarY - SLOT_PADDING });
 
     slotShape.setSize({ SLOT_SIZE, SLOT_SIZE });
+
+    // Полоска дня
+    dayBarBg.setSize({ 800.f, 8.f });
+    dayBarBg.setFillColor(sf::Color(40, 40, 40));
+    dayBarBg.setPosition({ 0.f, 0.f });
+
+    dayBar.setSize({ 800.f, 8.f });
+    dayBar.setFillColor(sf::Color(220, 180, 60));
+    dayBar.setPosition({ 0.f, 0.f });
 }
 
 // ============================================
@@ -95,4 +104,15 @@ void UI::drawTexts(sf::RenderWindow& window,
         leavesText->setString("Leaves: " + std::to_string(leaves));
         window.draw(*leavesText);
     }
+}
+
+
+// ============================================
+// ОТРИСОВКА ПОЛОСКИ ДНЯ
+// ============================================
+void UI::drawDayBar(sf::RenderWindow& window, float dayProgress)
+{
+    window.draw(dayBarBg);
+    dayBar.setSize({ 800.f * dayProgress, 8.f });
+    window.draw(dayBar);
 }
