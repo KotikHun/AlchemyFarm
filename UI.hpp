@@ -31,6 +31,9 @@ struct UI {
     // Окно инвентаря
     sf::RectangleShape inventoryBg;
 
+    // Корзина для удаления
+    sf::RectangleShape trashSlot;
+
     // Константы
     static constexpr int HOTBAR_SLOTS = 9;
     static constexpr float SLOT_SIZE = 50.f;
@@ -68,5 +71,6 @@ struct UI {
     void drawInventory(sf::RenderWindow& window,
         const Inventory& inv,
         int activeSlot,
-        bool isOpen);
+        bool isOpen,
+        bool isDragging);
 };

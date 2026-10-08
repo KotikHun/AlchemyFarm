@@ -50,9 +50,19 @@ UI::UI()
     dayBar.setPosition({ 0.f, 0.f });
 
     // Фон окна инвентаря (полупрозрачный тёмный)
-    inventoryBg.setSize({ 500.f, 240.f });  // 27 слотов (9x3) + хотбар
+    inventoryBg.setSize({ 500.f, 240.f });
     inventoryBg.setFillColor(sf::Color(30, 30, 30, 220));
     inventoryBg.setPosition({ 150.f, 180.f });
+
+    // Корзина — под хотбаром справа
+    // Правый край корзины совпадает с правым краем хотбара в инвентаре
+    // Хотбар в инвентаре: GRID_X = 150 + 5 = 155, 9 слотов → до x = 155 + 9*55 = 650
+    float trashX = 650.f - SLOT_SIZE;   // = 600
+    float trashY = 180.f + SLOT_PADDING + 3 * (SLOT_SIZE + SLOT_PADDING) + 5.f + SLOT_SIZE + 5.f;
+    // Проще: корзина на 5px ниже хотбара
+    float hotbarInventoryY = 180.f + SLOT_PADDING + 3 * (SLOT_SIZE + SLOT_PADDING) + 5.f;
+    trashSlot.setSize({ SLOT_SIZE, SLOT_SIZE });
+    trashSlot.setPosition({ trashX, hotbarInventoryY + SLOT_SIZE + 5.f });
 
     slotShape.setSize({ SLOT_SIZE, SLOT_SIZE });
 }
@@ -129,7 +139,8 @@ void UI::drawDayBar(sf::RenderWindow& window, float dayProgress)
 void UI::drawInventory(sf::RenderWindow& window,
     const Inventory& inv,
     int activeSlot,
-    bool isOpen)
+    bool isOpen,
+    bool isDragging)
 {
     if (!isOpen) return;
 
@@ -180,6 +191,23 @@ void UI::drawInventory(sf::RenderWindow& window,
         const Item& item = inv.getSlot(col);
         drawItemIcon(window, x, y, item);
     }
+    // Корзина
+// Подсветка красным при перетаскивании над ней
+    sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+    float mx = static_cast<float>(mousePixel.x);
+    float my = static_cast<float>(mousePixel.y);
+
+    sf::Vector2f trashPos = trashSlot.getPosition();
+    bool overTrash = isDragging &&
+        mx >= trashPos.x && mx < trashPos.x + SLOT_SIZE &&
+        my >= trashPos.y && my < trashPos.y + SLOT_SIZE;
+
+    if (overTrash)
+        trashSlot.setFillColor(sf::Color(200, 60, 60));   // красный
+    else
+        trashSlot.setFillColor(sf::Color(80, 40, 40));    // тёмно-красный
+
+    window.draw(trashSlot);
 }
 
 // ============================================

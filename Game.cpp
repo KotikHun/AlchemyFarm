@@ -112,7 +112,12 @@ void Game::handleEvents()
             {
                 int slot = getSlotUnderMouse(sf::Mouse::getPosition(window));
 
-                if (slot >= 0)
+                if (slot == -2)
+                {
+                    // Корзина — уничтожить предмет (ничего не делаем,
+                    // draggedItem просто пропадёт)
+                }
+                else if (slot >= 0)
                 {
                     Item& target = inv.slots[slot];
                     if (target.isEmpty())
@@ -198,7 +203,7 @@ void Game::render()
     {
         ui.drawHotbar(window, inv, activeSlot);
     }
-    ui.drawInventory(window, inv, activeSlot, isInventoryOpen);
+    ui.drawInventory(window, inv, activeSlot, isInventoryOpen, isDragging);
 
     // Иконка перетаскивания (под курсором)
     if (isDragging)
@@ -259,6 +264,12 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
         if (isInside(mx, my, x, hotbarY, UI::SLOT_SIZE))
             return col;
     }
+
+    // Корзина — специальный индекс -2
+    float trashX = 650.f - UI::SLOT_SIZE;
+    float trashY = hotbarY + UI::SLOT_SIZE + 5.f;
+    if (isInside(mx, my, trashX, trashY, UI::SLOT_SIZE))
+        return -2;
 
     return -1;
 }
