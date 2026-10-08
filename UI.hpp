@@ -2,7 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <memory>
-#include "Tool.hpp"
+#include "Inventory.hpp"
 
 // ============================================
 // ИНТЕРФЕЙС (UI)
@@ -37,8 +37,8 @@ struct UI {
     // Конструктор
     UI();
 
-    // Отрисовка хотбара
-    void drawHotbar(sf::RenderWindow& window, Tool currentTool);
+    // Отрисовка хотбара    
+    void drawHotbar(sf::RenderWindow& window, const Inventory& inv, int activeSlot);
 
     // Отрисовка текста (день, семечки, листья)
     void drawTexts(sf::RenderWindow& window,

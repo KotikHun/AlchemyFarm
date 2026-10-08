@@ -168,7 +168,6 @@
     <ClInclude Include="ItemDatabase.hpp" />
     <ClInclude Include="Player.hpp" />
     <ClInclude Include="Tile.hpp" />
-    <ClInclude Include="Tool.hpp" />
     <ClInclude Include="UI.hpp" />
     <ClInclude Include="World.hpp" />
   </ItemGroup>

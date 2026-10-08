@@ -53,7 +53,7 @@ UI::UI()
 // ============================================
 // ОТРИСОВКА ХОТБАРА
 // ============================================
-void UI::drawHotbar(sf::RenderWindow& window, Tool currentTool)
+void UI::drawHotbar(sf::RenderWindow& window, const Inventory& inv, int activeSlot)
 {
     window.draw(hotbarBg);
 
@@ -64,13 +64,8 @@ void UI::drawHotbar(sf::RenderWindow& window, Tool currentTool)
         float slotX = HOTBAR_MARGIN + SLOT_PADDING + i * (SLOT_SIZE + SLOT_PADDING);
         slotShape.setPosition({ slotX, hotbarY });
 
-        bool isSelected = false;
-        if (i == 0 && currentTool == Tool::Hoe) isSelected = true;
-        if (i == 1 && currentTool == Tool::Seed) isSelected = true;
-        if (i == 2 && currentTool == Tool::WateringCan) isSelected = true;
-        if (i == 3 && currentTool == Tool::Hand) isSelected = true;
-
-        if (isSelected)
+        // Подсветка по индексу активного слота
+        if (i == activeSlot)
             slotShape.setFillColor(sf::Color(200, 200, 100));
         else
             slotShape.setFillColor(sf::Color(80, 80, 80));
@@ -78,7 +73,6 @@ void UI::drawHotbar(sf::RenderWindow& window, Tool currentTool)
         window.draw(slotShape);
     }
 }
-
 // ============================================
 // ОТРИСОВКА ТЕКСТА
 // ============================================

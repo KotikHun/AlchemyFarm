@@ -5,7 +5,6 @@
 #include "Tile.hpp"
 #include "Player.hpp"
 #include "Inventory.hpp"
-#include "Tool.hpp"
 
 // ============================================
 // ИГРОВОЙ МИР (КАРТА)
@@ -52,6 +51,5 @@ struct World {
     // player — откуда смотрит игрок
     // tool — чем действуем
     // inv — меняем счётчики (семечки, листья)
-    void interact(const Player& player, Tool tool, Inventory& inv);
-
+    void interact(const Player& player, const std::string& itemId, Inventory& inv);
 };

@@ -51,18 +51,22 @@ void Game::handleEvents()
 
         if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
-            if (keyPressed->code == sf::Keyboard::Key::Num1)
-                currentTool = Tool::Hoe;
-            else if (keyPressed->code == sf::Keyboard::Key::Num2)
-                currentTool = Tool::Seed;
-            else if (keyPressed->code == sf::Keyboard::Key::Num3)
-                currentTool = Tool::WateringCan;
-            else if (keyPressed->code == sf::Keyboard::Key::Num4)
-                currentTool = Tool::Hand;
+            // Хотбар: клавиши 1-9 выбирают слот 0-8
+            if (keyPressed->code == sf::Keyboard::Key::Num1) activeSlot = 0;
+            else if (keyPressed->code == sf::Keyboard::Key::Num2) activeSlot = 1;
+            else if (keyPressed->code == sf::Keyboard::Key::Num3) activeSlot = 2;
+            else if (keyPressed->code == sf::Keyboard::Key::Num4) activeSlot = 3;
+            else if (keyPressed->code == sf::Keyboard::Key::Num5) activeSlot = 4;
+            else if (keyPressed->code == sf::Keyboard::Key::Num6) activeSlot = 5;
+            else if (keyPressed->code == sf::Keyboard::Key::Num7) activeSlot = 6;
+            else if (keyPressed->code == sf::Keyboard::Key::Num8) activeSlot = 7;
+            else if (keyPressed->code == sf::Keyboard::Key::Num9) activeSlot = 8;
 
+            // Взаимодействие: берём id предмета из активного слота
             if (keyPressed->code == sf::Keyboard::Key::E)
             {
-                world.interact(player, currentTool, inv);
+                const Item& activeItem = inv.getSlot(activeSlot);
+                world.interact(player, activeItem.id, inv);
             }
         }
     }
@@ -118,7 +122,7 @@ void Game::render()
     float dayProgress = dayTimer / DAY_LENGTH;
     ui.drawDayBar(window, dayProgress);
     ui.drawTexts(window, currentDay, inv.countItem("seeds"), inv.countItem("leaves"));
-    ui.drawHotbar(window, currentTool);
+    ui.drawHotbar(window, inv, activeSlot);
 
     window.display();
 }

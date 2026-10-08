@@ -5,7 +5,6 @@
 #include "Player.hpp"
 #include "Inventory.hpp"
 #include "UI.hpp"
-#include "Tool.hpp"
 #include "ItemDatabase.hpp"
 
 // ============================================
@@ -26,8 +25,8 @@ struct Game {
     Inventory inv;
     UI ui;
 
-    // Текущий инструмент
-    Tool currentTool = Tool::Hoe;
+    // Активный слот хотбара (0-8)
+    int activeSlot = 0;
 
     // Маркер тайла перед игроком
     sf::RectangleShape targetMarker;

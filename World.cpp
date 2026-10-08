@@ -111,7 +111,7 @@ void World::updateGrowth()
 // ============================================
 // ВЗАИМОДЕЙСТВИЕ
 // ============================================
-void World::interact(const Player& player, Tool tool, Inventory& inv)
+void World::interact(const Player& player, const std::string& itemId, Inventory& inv)
 {
     // 1. Центр игрока
     sf::Vector2f pos = player.shape.getPosition();
@@ -130,61 +130,53 @@ void World::interact(const Player& player, Tool tool, Inventory& inv)
     if (targetX < 0 || targetX >= WIDTH ||
         targetY < 0 || targetY >= HEIGHT)
     {
-        return;  // вышли за карту — ничего не делаем
+        return;
     }
 
     // 5. Ссылка на тайл
     Tile& t = map[targetY][targetX];
 
-    // 6. Действие зависит от инструмента
-    switch (tool)
+    // 6. Действие зависит от предмета в руке
+    if (itemId == "hoe")
     {
-    case Tool::Hoe:
-        // Мотыга:
-        // - трава → грядка
-        // - грядка с растением → убрать
+        // Мотыга
         if (t.type == 0)
         {
             t.type = 1;
         }
         else if (t.type == 1 && t.plantStage > 0)
         {
-            // Спелое — упал урожай
             if (t.plantStage == 3)
-            {
                 inv.addItem("leaves", 1, 99);
-            }
-            // Молодое — просто пропадает
             t.plantStage = 0;
             t.watered = false;
         }
-        break;
-
-    case Tool::Seed:
-        // Семечко: пустая грядка + есть семена → посадить
+    }
+    else if (itemId == "seeds")
+    {
+        // Семечко
         if (t.type == 1 && t.plantStage == 0 && inv.countItem("seeds") > 0)
         {
             t.plantStage = 1;
             inv.removeItem("seeds", 1);
         }
-        break;
-
-    case Tool::WateringCan:
-        // Лейка: любая вскопанная грядка, не политая → полить
+    }
+    else if (itemId == "watering_can")
+    {
+        // Лейка
         if (t.type == 1 && !t.watered)
         {
             t.watered = true;
         }
-        break;
-
-    case Tool::Hand:
-        // Рука: собрать спелое растение
+    }
+    else if (itemId.empty())
+    {
+        // Рука — собрать
         if (t.type == 1 && t.plantStage == 3)
         {
             inv.addItem("leaves", 1, 99);
             t.plantStage = 0;
             t.watered = false;
         }
-        break;
     }
 }
