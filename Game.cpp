@@ -100,7 +100,7 @@ void Game::render()
         int tx = static_cast<int>(cx / World::TILE_SIZE) + player.dirX;
         int ty = static_cast<int>(cy / World::TILE_SIZE) + player.dirY;
 
-        if (tx >= 0 && tx < World::WIDTH && ty >= 0 && ty < World::HEIGHT)
+        if (tx >= 0 && tx < World::WIDTH && ty >= 0 && ty < World::HEIGHT);
         {
             targetMarker.setPosition({ tx * World::TILE_SIZE, ty * World::TILE_SIZE });
             window.draw(targetMarker);
@@ -113,7 +113,7 @@ void Game::render()
     // UI
     float dayProgress = dayTimer / DAY_LENGTH;
     ui.drawDayBar(window, dayProgress);
-    ui.drawTexts(window, currentDay, inv.seeds, inv.leaves);
+    ui.drawTexts(window, currentDay, inv.countItem("seeds"), inv.countItem("leaves"));
     ui.drawHotbar(window, currentTool);
 
     window.display();

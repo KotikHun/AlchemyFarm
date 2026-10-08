@@ -152,7 +152,7 @@ void World::interact(const Player& player, Tool tool, Inventory& inv)
             // Спелое — упал урожай
             if (t.plantStage == 3)
             {
-                inv.leaves++;
+                inv.addItem("leaves", 1, 99);
             }
             // Молодое — просто пропадает
             t.plantStage = 0;
@@ -162,10 +162,10 @@ void World::interact(const Player& player, Tool tool, Inventory& inv)
 
     case Tool::Seed:
         // Семечко: пустая грядка + есть семена → посадить
-        if (t.type == 1 && t.plantStage == 0 && inv.seeds > 0)
+        if (t.type == 1 && t.plantStage == 0 && inv.countItem("seeds") > 0)
         {
             t.plantStage = 1;
-            inv.seeds--;
+            inv.removeItem("seeds", 1);
         }
         break;
 
@@ -181,7 +181,7 @@ void World::interact(const Player& player, Tool tool, Inventory& inv)
         // Рука: собрать спелое растение
         if (t.type == 1 && t.plantStage == 3)
         {
-            inv.leaves++;
+            inv.addItem("leaves", 1, 99);
             t.plantStage = 0;
             t.watered = false;
         }
