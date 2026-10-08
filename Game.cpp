@@ -12,6 +12,10 @@ Game::Game()
     {
         std::cerr << "GAME: items.json NOT LOADED" << std::endl;
     }
+    // Начальный инвентарь
+    inv.addItem("hoe", 1, 1);
+    inv.addItem("watering_can", 1, 1);
+    inv.addItem("seeds", 5, 99);
 
     // Маркер тайла перед игроком
     targetMarker.setSize({ World::TILE_SIZE, World::TILE_SIZE });
