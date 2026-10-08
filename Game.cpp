@@ -61,7 +61,11 @@ void Game::handleEvents()
             else if (keyPressed->code == sf::Keyboard::Key::Num7) activeSlot = 6;
             else if (keyPressed->code == sf::Keyboard::Key::Num8) activeSlot = 7;
             else if (keyPressed->code == sf::Keyboard::Key::Num9) activeSlot = 8;
-
+            // Открыть/закрыть инвентарь
+            if (keyPressed->code == sf::Keyboard::Key::I)
+            {
+                isInventoryOpen = !isInventoryOpen;
+            }
             // Взаимодействие: берём id предмета из активного слота
             if (keyPressed->code == sf::Keyboard::Key::E)
             {
@@ -108,7 +112,7 @@ void Game::render()
         int tx = static_cast<int>(cx / World::TILE_SIZE) + player.dirX;
         int ty = static_cast<int>(cy / World::TILE_SIZE) + player.dirY;
 
-        if (tx >= 0 && tx < World::WIDTH && ty >= 0 && ty < World::HEIGHT);
+        if (tx >= 0 && tx < World::WIDTH && ty >= 0 && ty < World::HEIGHT)
         {
             targetMarker.setPosition({ tx * World::TILE_SIZE, ty * World::TILE_SIZE });
             window.draw(targetMarker);
@@ -123,6 +127,6 @@ void Game::render()
     ui.drawDayBar(window, dayProgress);
     ui.drawTexts(window, currentDay, inv.countItem("seeds"), inv.countItem("leaves"));
     ui.drawHotbar(window, inv, activeSlot);
-
+    ui.drawInventory(window, inv, activeSlot, isInventoryOpen);
     window.display();
 }

@@ -27,6 +27,8 @@ struct Game {
 
     // Активный слот хотбара (0-8)
     int activeSlot = 0;
+    // Открыт ли инвентарь
+    bool isInventoryOpen = false;
 
     // Маркер тайла перед игроком
     sf::RectangleShape targetMarker;
