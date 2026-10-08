@@ -2,6 +2,14 @@
 #include <iostream>
 
 // ============================================
+// ВСПОМОГАТЕЛЬНОЕ
+// ============================================
+static bool isInside(float mx, float my, float x, float y, float size)
+{
+    return mx >= x && mx < x + size && my >= y && my < y + size;
+}
+
+// ============================================
 // КОНСТРУКТОР
 // ============================================
 Game::Game()
@@ -73,8 +81,68 @@ void Game::handleEvents()
                 world.interact(player, activeItem.id, inv);
             }
         }
-    }
-}
+        // ============================================
+        // МЫШЬ: НАЧАЛО ПЕРЕТАСКИВАНИЯ
+        // ============================================
+        if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
+        {
+            if (mousePressed->button == sf::Mouse::Button::Left)
+            {
+                int slot = getSlotUnderMouse(sf::Mouse::getPosition(window));
+                if (slot >= 0)
+                {
+                    const Item& item = inv.getSlot(slot);
+                    if (!item.isEmpty())
+                    {
+                        isDragging = true;
+                        draggedItem = item;
+                        draggedFromSlot = slot;
+                        inv.setSlot(slot, Item{});
+                    }
+                }
+            }
+        }
+
+        // ============================================
+        // МЫШЬ: ОТПУСКАНИЕ
+        // ============================================
+        if (const auto* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>())
+        {
+            if (mouseReleased->button == sf::Mouse::Button::Left && isDragging)
+            {
+                int slot = getSlotUnderMouse(sf::Mouse::getPosition(window));
+
+                if (slot >= 0)
+                {
+                    Item& target = inv.slots[slot];
+                    if (target.isEmpty())
+                    {
+                        inv.setSlot(slot, draggedItem);
+                    }
+                    else if (target.id == draggedItem.id)
+                    {
+                        target.count += draggedItem.count;
+                    }
+                    else
+                    {
+                        Item temp = target;
+                        inv.setSlot(slot, draggedItem);
+                        inv.setSlot(draggedFromSlot, temp);
+                    }
+                }
+                else
+                {
+                    inv.setSlot(draggedFromSlot, draggedItem);
+                }
+
+                isDragging = false;
+                draggedItem = Item{};
+                draggedFromSlot = -1;
+                draggedFromHotbar = false;
+            }
+        }
+    }   // ← конец while (pollEvent)
+}       // ← конец handleEvents
 
 // ============================================
 // ОБНОВЛЕНИЕ
@@ -126,7 +194,71 @@ void Game::render()
     float dayProgress = dayTimer / DAY_LENGTH;
     ui.drawDayBar(window, dayProgress);
     ui.drawTexts(window, currentDay, inv.countItem("seeds"), inv.countItem("leaves"));
-    ui.drawHotbar(window, inv, activeSlot);
+    if (!isInventoryOpen)
+    {
+        ui.drawHotbar(window, inv, activeSlot);
+    }
     ui.drawInventory(window, inv, activeSlot, isInventoryOpen);
+
+    // Иконка перетаскивания (под курсором)
+    if (isDragging)
+    {
+        sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+        ui.drawItemIcon(window,
+            static_cast<float>(mousePixel.x) - UI::SLOT_SIZE / 2.f,
+            static_cast<float>(mousePixel.y) - UI::SLOT_SIZE / 2.f,
+            draggedItem);
+    }
+
     window.display();
+}
+
+
+// ============================================
+// ПОИСК СЛОТА ПОД МЫШЬЮ
+// ============================================
+int Game::getSlotUnderMouse(sf::Vector2i mousePos)
+{
+    float mx = static_cast<float>(mousePos.x);
+    float my = static_cast<float>(mousePos.y);
+
+    // Инвентарь закрыт — только нижний хотбар
+    if (!isInventoryOpen)
+    {
+        float hotbarY = 600.f - UI::SLOT_SIZE - UI::HOTBAR_MARGIN;
+        for (int i = 0; i < UI::HOTBAR_SLOTS; i++)
+        {
+            float slotX = UI::HOTBAR_MARGIN + UI::SLOT_PADDING + i * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+            if (isInside(mx, my, slotX, hotbarY, UI::SLOT_SIZE))
+                return i;
+        }
+        return -1;
+    }
+
+    // Инвентарь открыт — рюкзак + хотбар внутри
+    const float GRID_X = 150.f + UI::SLOT_PADDING;
+    const float GRID_Y = 180.f + UI::SLOT_PADDING;
+
+    // Рюкзак (слоты 9-35)
+    for (int row = 0; row < 3; row++)
+    {
+        for (int col = 0; col < 9; col++)
+        {
+            float x = GRID_X + col * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+            float y = GRID_Y + row * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+            if (isInside(mx, my, x, y, UI::SLOT_SIZE))
+                return 9 + row * 9 + col;
+        }
+    }
+
+    // Хотбар в инвентаре (слоты 0-8)
+    float hotbarY = GRID_Y + 3 * (UI::SLOT_SIZE + UI::SLOT_PADDING) + 5.f;
+    for (int col = 0; col < 9; col++)
+    {
+        float x = GRID_X + col * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+        if (isInside(mx, my, x, hotbarY, UI::SLOT_SIZE))
+            return col;
+    }
+
+    return -1;
 }

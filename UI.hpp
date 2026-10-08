@@ -32,7 +32,7 @@ struct UI {
     sf::RectangleShape inventoryBg;
 
     // Константы
-    static constexpr int HOTBAR_SLOTS = 4;
+    static constexpr int HOTBAR_SLOTS = 9;
     static constexpr float SLOT_SIZE = 50.f;
     static constexpr float SLOT_PADDING = 5.f;
     static constexpr float HOTBAR_MARGIN = 10.f;

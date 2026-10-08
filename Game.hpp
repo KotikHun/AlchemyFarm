@@ -30,6 +30,12 @@ struct Game {
     // Открыт ли инвентарь
     bool isInventoryOpen = false;
 
+    // Состояние перетаскивания
+    bool isDragging = false;
+    Item draggedItem;
+    int draggedFromSlot = -1;
+    bool draggedFromHotbar = false;
+
     // Маркер тайла перед игроком
     sf::RectangleShape targetMarker;
 
@@ -56,4 +62,7 @@ private:
 
     // Отрисовка (мир, игрок, UI)
     void render();
+
+    // Поиск слота под мышью (возвращает индекс 0-35 или -1)
+    int getSlotUnderMouse(sf::Vector2i mousePos);
 };
