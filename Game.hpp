@@ -6,6 +6,8 @@
 #include "Inventory.hpp"
 #include "UI.hpp"
 #include "ItemDatabase.hpp"
+#include "DroppedItem.hpp"
+#include <vector>
 
 // ============================================
 // ИГРА
@@ -35,6 +37,9 @@ struct Game {
     Item draggedItem;
     int draggedFromSlot = -1;
     bool draggedFromHotbar = false;
+
+    // Предметы на земле
+    std::vector<DroppedItem> droppedItems;
 
     // Маркер тайла перед игроком
     sf::RectangleShape targetMarker;

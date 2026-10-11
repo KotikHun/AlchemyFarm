@@ -1,5 +1,6 @@
 #include "Game.hpp"
 #include <iostream>
+#include <cmath>
 
 // ============================================
 // ВСПОМОГАТЕЛЬНОЕ
@@ -80,6 +81,31 @@ void Game::handleEvents()
                 const Item& activeItem = inv.getSlot(activeSlot);
                 world.interact(player, activeItem.id, inv);
             }
+
+            // Q — выбросить активный слот
+            if (keyPressed->code == sf::Keyboard::Key::Q)
+            {
+                const Item& item = inv.getSlot(activeSlot);
+                if (!item.isEmpty())
+                {
+                    // Позиция: перед игроком
+                    sf::Vector2f ppos = player.shape.getPosition();
+                    float cx = ppos.x + Player::SIZE / 2.f;
+                    float cy = ppos.y + Player::SIZE / 2.f;
+
+                    DroppedItem drop;
+                    drop.item = item;
+                    drop.position = {
+                        cx + player.dirX * 32.f - 12.f,
+                        cy + player.dirY * 32.f - 12.f
+                    };
+                    droppedItems.push_back(drop);
+
+                    // Убрать из инвентаря
+                    inv.setSlot(activeSlot, Item{});
+                }
+            }
+
         }
         // ============================================
         // МЫШЬ: НАЧАЛО ПЕРЕТАСКИВАНИЯ
@@ -161,10 +187,42 @@ void Game::update(float dt)
         dayTimer = 0.f;
         currentDay++;
         world.updateGrowth();
+
+        // При новом дне все предметы на земле исчезают
+        droppedItems.clear();
     }
 
     // Игрок
     player.update(dt, 800.f, 600.f);
+
+    // Подбор предметов на земле
+    sf::Vector2f ppos = player.shape.getPosition();
+    float pcx = ppos.x + Player::SIZE / 2.f;
+    float pcy = ppos.y + Player::SIZE / 2.f;
+
+    for (auto it = droppedItems.begin(); it != droppedItems.end(); )
+    {
+        it->age += dt;
+
+        float dx = it->position.x - pcx;
+        float dy = it->position.y - pcy;
+        float distSq = dx * dx + dy * dy;
+
+        if (distSq < 15.f * 15.f)  // 15 пикселей
+        {
+            const ItemData* data = itemDB.find(it->item.id);
+            int maxStack = data ? data->maxStack : 1;
+
+            bool added = inv.addItem(it->item.id, it->item.count, maxStack);
+            if (added)
+            {
+                it = droppedItems.erase(it);
+                continue;
+            }
+        }
+
+        ++it;
+    }
 }
 
 // ============================================
@@ -194,6 +252,29 @@ void Game::render()
 
     // Игрок
     player.draw(window);
+
+    // Предметы на земле
+    for (const auto& drop : droppedItems)
+    {
+        // Подпрыгивание
+        float bob = std::sin(drop.age * 3.f) * 3.f;
+        float x = drop.position.x;
+        float y = drop.position.y + bob;
+
+        // Квадратик
+        sf::RectangleShape icon({ 24.f, 24.f });
+        icon.setPosition({ x, y });
+        icon.setFillColor(UI::getItemColor(drop.item.id));
+        window.draw(icon);
+
+        // Буква
+        sf::Text letter(ui.font);
+        letter.setString(UI::getItemLetter(drop.item.id));
+        letter.setCharacterSize(14);
+        letter.setFillColor(sf::Color::White);
+        letter.setPosition({ x + 6.f, y + 2.f });
+        window.draw(letter);
+    }
 
     // UI
     float dayProgress = dayTimer / DAY_LENGTH;
