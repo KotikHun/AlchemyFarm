@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <vector>
 
 // ============================================
 // ИГРОК
@@ -25,7 +26,8 @@ struct Player {
 
     // Обновление (движение) за кадр
     // windowWidth, windowHeight — для ограничения по краям
-    void update(float dt, float windowWidth, float windowHeight);
+    void update(float dt, float windowWidth, float windowHeight,
+        const std::vector<sf::FloatRect>& obstacles);
 
     // Отрисовка
     void draw(sf::RenderWindow& window);

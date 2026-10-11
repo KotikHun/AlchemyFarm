@@ -26,6 +26,13 @@ Game::Game()
     inv.addItem("watering_can", 1, 1);
     inv.addItem("seeds", 5, 99);
 
+    // Сундук на карте (деревянный, 18 слотов)
+    Chest chest;
+    chest.slotCount = 18;
+    chest.type = "wooden";
+    chest.position = { 10 * 32.f, 10 * 32.f };  // тайл (10, 10) = {320, 320}
+    chests.push_back(chest);
+
     // Маркер тайла перед игроком
     targetMarker.setSize({ World::TILE_SIZE, World::TILE_SIZE });
     targetMarker.setFillColor(sf::Color(255, 255, 0, 100));
@@ -192,8 +199,15 @@ void Game::update(float dt)
         droppedItems.clear();
     }
 
+    // Препятствия — сундуки (32x32 каждый)
+    std::vector<sf::FloatRect> obstacles;
+    for (const auto& chest : chests)
+    {
+        obstacles.push_back(sf::FloatRect(chest.position, { 32.f, 32.f }));
+    }
+
     // Игрок
-    player.update(dt, 800.f, 600.f);
+    player.update(dt, 800.f, 600.f, obstacles);
 
     // Подбор предметов на земле
     sf::Vector2f ppos = player.shape.getPosition();
@@ -252,6 +266,21 @@ void Game::render()
 
     // Игрок
     player.draw(window);
+
+    // Сундуки на карте
+    for (const auto& chest : chests)
+    {
+        sf::RectangleShape chestShape({ 32.f, 32.f });
+        chestShape.setPosition(chest.position);
+        chestShape.setFillColor(sf::Color(139, 69, 19));
+        window.draw(chestShape);
+
+        // Крышка
+        sf::RectangleShape lid({ 32.f, 8.f });
+        lid.setPosition({ chest.position.x, chest.position.y - 4.f });
+        lid.setFillColor(sf::Color(80, 40, 10));
+        window.draw(lid);
+    }
 
     // Предметы на земле
     for (const auto& drop : droppedItems)

@@ -8,6 +8,7 @@
 #include "ItemDatabase.hpp"
 #include "DroppedItem.hpp"
 #include <vector>
+#include "Chest.hpp"
 
 // ============================================
 // ИГРА
@@ -40,6 +41,9 @@ struct Game {
 
     // Предметы на земле
     std::vector<DroppedItem> droppedItems;
+
+    // Сундуки на карте
+    std::vector<Chest> chests;
 
     // Маркер тайла перед игроком
     sf::RectangleShape targetMarker;

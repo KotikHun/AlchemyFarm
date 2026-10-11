@@ -13,7 +13,8 @@ Player::Player()
 // ============================================
 // ОБНОВЛЕНИЕ (движение)
 // ============================================
-void Player::update(float dt, float windowWidth, float windowHeight)
+void Player::update(float dt, float windowWidth, float windowHeight,
+    const std::vector<sf::FloatRect>& obstacles)
 {
     // Текущая позиция
     sf::Vector2f pos = shape.getPosition();
@@ -48,8 +49,36 @@ void Player::update(float dt, float windowWidth, float windowHeight)
         dirY = 0;
     }
 
-    pos.x += dx;
-    pos.y += dy;
+    // === Проверка коллизий ===
+    // Сначала двигаем по X
+    sf::Vector2f newPosX = { pos.x + dx, pos.y };
+    sf::FloatRect rectX(newPosX, { SIZE, SIZE });
+    bool blockedX = false;
+    for (const auto& obs : obstacles)
+    {
+        if (rectX.findIntersection(obs).has_value())
+        {
+            blockedX = true;
+            break;
+        }
+    }
+    if (!blockedX)
+        pos.x = newPosX.x;
+
+    // Потом по Y
+    sf::Vector2f newPosY = { pos.x, pos.y + dy };
+    sf::FloatRect rectY(newPosY, { SIZE, SIZE });
+    bool blockedY = false;
+    for (const auto& obs : obstacles)
+    {
+        if (rectY.findIntersection(obs).has_value())
+        {
+            blockedY = true;
+            break;
+        }
+    }
+    if (!blockedY)
+        pos.y = newPosY.y;
 
     // Ограничение по краям окна
     float maxX = windowWidth - SIZE;
@@ -62,7 +91,6 @@ void Player::update(float dt, float windowWidth, float windowHeight)
 
     shape.setPosition(pos);
 }
-
 // ============================================
 // ОТРИСОВКА
 // ============================================
