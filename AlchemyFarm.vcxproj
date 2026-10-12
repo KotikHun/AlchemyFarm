@@ -154,6 +154,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
+    <ClInclude Include="Chest.hpp" />
+    <ClInclude Include="DroppedItem.hpp" />
     <ClInclude Include="Game.hpp" />
     <ClCompile Include="Inventory.cpp" />
     <ClCompile Include="ItemDatabase.cpp" />
