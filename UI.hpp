@@ -40,6 +40,13 @@ struct UI {
     static constexpr float SLOT_PADDING = 5.f;
     static constexpr float HOTBAR_MARGIN = 10.f;
 
+    // Координаты сеток UI
+    static constexpr float CHEST_GRID_X = 155.f;    // 150 + 5
+    static constexpr float CHEST_GRID_Y = 45.f;     // 40 + 5
+    static constexpr float INV_GRID_X = 155.f;
+    static constexpr float INV_GRID_Y = 185.f;
+    static constexpr float CHEST_OFFSET_Y = 170.f;  // сдвиг инвентаря при сундуке
+
     // Конструктор
     UI();
 

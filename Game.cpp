@@ -65,9 +65,10 @@ void Game::handleEvents()
             window.close();
         }
 
+        // === КЛАВИАТУРА ===
         if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
-            // Хотбар: клавиши 1-9 выбирают слот 0-8
+            // Хотбар: 1-9
             if (keyPressed->code == sf::Keyboard::Key::Num1) activeSlot = 0;
             else if (keyPressed->code == sf::Keyboard::Key::Num2) activeSlot = 1;
             else if (keyPressed->code == sf::Keyboard::Key::Num3) activeSlot = 2;
@@ -77,35 +78,33 @@ void Game::handleEvents()
             else if (keyPressed->code == sf::Keyboard::Key::Num7) activeSlot = 6;
             else if (keyPressed->code == sf::Keyboard::Key::Num8) activeSlot = 7;
             else if (keyPressed->code == sf::Keyboard::Key::Num9) activeSlot = 8;
-            // Открыть/закрыть инвентарь
+
+            // Инвентарь
             if (keyPressed->code == sf::Keyboard::Key::I)
             {
                 isInventoryOpen = !isInventoryOpen;
             }
-            
-            // Взаимодействие: сундук или мир
+
+            // E: сундук или мир
             if (keyPressed->code == sf::Keyboard::Key::E)
             {
                 if (nearbyChest != nullptr)
                 {
-                    // Открыть/закрыть сундук
                     nearbyChest->isOpen = !nearbyChest->isOpen;
                 }
                 else
                 {
-                    // Обычное взаимодействие с миром
                     const Item& activeItem = inv.getSlot(activeSlot);
                     world.interact(player, activeItem.id, inv);
                 }
             }
 
-            // Q — выбросить активный слот
+            // Q: выбросить
             if (keyPressed->code == sf::Keyboard::Key::Q)
             {
                 const Item& item = inv.getSlot(activeSlot);
                 if (!item.isEmpty())
                 {
-                    // Позиция: перед игроком
                     sf::Vector2f ppos = player.shape.getPosition();
                     float cx = ppos.x + Player::SIZE / 2.f;
                     float cy = ppos.y + Player::SIZE / 2.f;
@@ -118,22 +117,34 @@ void Game::handleEvents()
                     };
                     droppedItems.push_back(drop);
 
-                    // Убрать из инвентаря
                     inv.setSlot(activeSlot, Item{});
                 }
             }
-
         }
-        // ============================================
-        // МЫШЬ: НАЧАЛО ПЕРЕТАСКИВАНИЯ
-        // ============================================
+
+        // === МЫШЬ: НАЧАЛО ПЕРЕТАСКИВАНИЯ ===
         if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
         {
             if (mousePressed->button == sf::Mouse::Button::Left)
             {
                 int slot = getSlotUnderMouse(sf::Mouse::getPosition(window));
-                if (slot >= 0)
+
+                if (slot >= 100 && nearbyChest != nullptr)
                 {
+                    // Из сундука
+                    int chestSlot = slot - 100;
+                    const Item& item = nearbyChest->inventory.getSlot(chestSlot);
+                    if (!item.isEmpty())
+                    {
+                        isDragging = true;
+                        draggedItem = item;
+                        draggedFromSlot = slot;
+                        nearbyChest->inventory.setSlot(chestSlot, Item{});
+                    }
+                }
+                else if (slot >= 0 && slot < 36)
+                {
+                    // Из инвентаря игрока
                     const Item& item = inv.getSlot(slot);
                     if (!item.isEmpty())
                     {
@@ -146,9 +157,7 @@ void Game::handleEvents()
             }
         }
 
-        // ============================================
-        // МЫШЬ: ОТПУСКАНИЕ
-        // ============================================
+        // === МЫШЬ: ОТПУСКАНИЕ ===
         if (const auto* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>())
         {
             if (mouseReleased->button == sf::Mouse::Button::Left && isDragging)
@@ -157,12 +166,43 @@ void Game::handleEvents()
 
                 if (slot == -2)
                 {
-                    // Корзина — уничтожить предмет (ничего не делаем,
-                    // draggedItem просто пропадёт)
+                    // Корзина — уничтожить (draggedItem пропадёт)
                 }
-                else if (slot >= 0)
+                else if (slot >= 100 && nearbyChest != nullptr)
                 {
+                    // Положить в сундук
+                    int chestSlot = slot - 100;
+                    Item& target = nearbyChest->inventory.slots[chestSlot];
+
+                    if (target.isEmpty())
+                    {
+                        nearbyChest->inventory.setSlot(chestSlot, draggedItem);
+                    }
+                    else if (target.id == draggedItem.id)
+                    {
+                        target.count += draggedItem.count;
+                    }
+                    else
+                    {
+                        // Swap
+                        Item temp = target;
+                        nearbyChest->inventory.setSlot(chestSlot, draggedItem);
+
+                        if (draggedFromSlot >= 100)
+                        {
+                            nearbyChest->inventory.setSlot(draggedFromSlot - 100, temp);
+                        }
+                        else if (draggedFromSlot >= 0 && draggedFromSlot < 36)
+                        {
+                            inv.setSlot(draggedFromSlot, temp);
+                        }
+                    }
+                }
+                else if (slot >= 0 && slot < 36)
+                {
+                    // Положить в инвентарь игрока
                     Item& target = inv.slots[slot];
+
                     if (target.isEmpty())
                     {
                         inv.setSlot(slot, draggedItem);
@@ -173,24 +213,42 @@ void Game::handleEvents()
                     }
                     else
                     {
+                        // Swap
                         Item temp = target;
                         inv.setSlot(slot, draggedItem);
-                        inv.setSlot(draggedFromSlot, temp);
+
+                        if (draggedFromSlot >= 100 && nearbyChest != nullptr)
+                        {
+                            nearbyChest->inventory.setSlot(draggedFromSlot - 100, temp);
+                        }
+                        else if (draggedFromSlot >= 0 && draggedFromSlot < 36)
+                        {
+                            inv.setSlot(draggedFromSlot, temp);
+                        }
                     }
                 }
                 else
                 {
-                    inv.setSlot(draggedFromSlot, draggedItem);
+                    // Отпустили мимо — вернуть обратно
+                    if (draggedFromSlot >= 100 && nearbyChest != nullptr)
+                    {
+                        nearbyChest->inventory.setSlot(draggedFromSlot - 100, draggedItem);
+                    }
+                    else if (draggedFromSlot >= 0 && draggedFromSlot < 36)
+                    {
+                        inv.setSlot(draggedFromSlot, draggedItem);
+                    }
                 }
 
+                // Сброс состояния
                 isDragging = false;
                 draggedItem = Item{};
                 draggedFromSlot = -1;
                 draggedFromHotbar = false;
             }
         }
-    }   // ← конец while (pollEvent)
-}       // ← конец handleEvents
+    }
+}
 
 // ============================================
 // ОБНОВЛЕНИЕ
@@ -383,8 +441,30 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
     float mx = static_cast<float>(mousePos.x);
     float my = static_cast<float>(mousePos.y);
 
-    // Инвентарь закрыт — только нижний хотбар
-    if (!isInventoryOpen)
+    bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
+    float invOffsetY = chestOpen ? 170.f : 0.f;
+
+    // === 1. СУНДУК (индексы 100+) ===
+    if (chestOpen)
+    {
+        const float CHEST_X = 150.f + UI::SLOT_PADDING;
+        const float CHEST_Y = 40.f + UI::SLOT_PADDING;
+        int rows = nearbyChest->slotCount / 9;
+
+        for (int row = 0; row < rows; row++)
+        {
+            for (int col = 0; col < 9; col++)
+            {
+                float x = CHEST_X + col * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+                float y = CHEST_Y + row * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+                if (isInside(mx, my, x, y, UI::SLOT_SIZE))
+                    return 100 + row * 9 + col;
+            }
+        }
+    }
+
+    // === 2. НИЖНИЙ ХОТБАР (если инвентарь и сундук закрыты) ===
+    if (!isInventoryOpen && !chestOpen)
     {
         float hotbarY = 600.f - UI::SLOT_SIZE - UI::HOTBAR_MARGIN;
         for (int i = 0; i < UI::HOTBAR_SLOTS; i++)
@@ -396,11 +476,11 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
         return -1;
     }
 
-    // Инвентарь открыт — рюкзак + хотбар внутри
+    // === 3. ИНВЕНТАРЬ ИГРОКА (со сдвигом) ===
     const float GRID_X = 150.f + UI::SLOT_PADDING;
-    const float GRID_Y = 180.f + UI::SLOT_PADDING;
+    float GRID_Y = 180.f + UI::SLOT_PADDING + invOffsetY;
 
-    // Рюкзак (слоты 9-35)
+    // Рюкзак (9-35)
     for (int row = 0; row < 3; row++)
     {
         for (int col = 0; col < 9; col++)
@@ -412,7 +492,7 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
         }
     }
 
-    // Хотбар в инвентаре (слоты 0-8)
+    // Хотбар в инвентаре (0-8)
     float hotbarY = GRID_Y + 3 * (UI::SLOT_SIZE + UI::SLOT_PADDING) + 5.f;
     for (int col = 0; col < 9; col++)
     {
@@ -421,7 +501,7 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
             return col;
     }
 
-    // Корзина — специальный индекс -2
+    // === 4. КОРЗИНА (-2, со сдвигом) ===
     float trashX = 650.f - UI::SLOT_SIZE;
     float trashY = hotbarY + UI::SLOT_SIZE + 5.f;
     if (isInside(mx, my, trashX, trashY, UI::SLOT_SIZE))
