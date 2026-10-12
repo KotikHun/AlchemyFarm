@@ -45,6 +45,9 @@ struct Game {
     // Сундуки на карте
     std::vector<Chest> chests;
 
+    // Ближайший сундук (для открытия по E)
+    Chest* nearbyChest = nullptr;
+
     // Маркер тайла перед игроком
     sf::RectangleShape targetMarker;
 

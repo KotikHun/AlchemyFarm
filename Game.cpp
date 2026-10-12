@@ -82,11 +82,21 @@ void Game::handleEvents()
             {
                 isInventoryOpen = !isInventoryOpen;
             }
-            // Взаимодействие: берём id предмета из активного слота
+            
+            // Взаимодействие: сундук или мир
             if (keyPressed->code == sf::Keyboard::Key::E)
             {
-                const Item& activeItem = inv.getSlot(activeSlot);
-                world.interact(player, activeItem.id, inv);
+                if (nearbyChest != nullptr)
+                {
+                    // Открыть/закрыть сундук
+                    nearbyChest->isOpen = !nearbyChest->isOpen;
+                }
+                else
+                {
+                    // Обычное взаимодействие с миром
+                    const Item& activeItem = inv.getSlot(activeSlot);
+                    world.interact(player, activeItem.id, inv);
+                }
             }
 
             // Q — выбросить активный слот
@@ -187,33 +197,61 @@ void Game::handleEvents()
 // ============================================
 void Game::update(float dt)
 {
-    // День
+    // 1. День
     dayTimer += dt;
     if (dayTimer >= DAY_LENGTH)
     {
         dayTimer = 0.f;
         currentDay++;
         world.updateGrowth();
-
-        // При новом дне все предметы на земле исчезают
         droppedItems.clear();
     }
 
-    // Препятствия — сундуки (32x32 каждый)
+    // 2. Игрок
     std::vector<sf::FloatRect> obstacles;
     for (const auto& chest : chests)
     {
         obstacles.push_back(sf::FloatRect(chest.position, { 32.f, 32.f }));
     }
 
-    // Игрок
-    player.update(dt, 800.f, 600.f, obstacles);
+    // Игрок двигается только если UI закрыт
+    bool uiOpen = isInventoryOpen || (nearbyChest != nullptr && nearbyChest->isOpen);
+    if (!uiOpen)
+    {
+        player.update(dt, 800.f, 600.f, obstacles);
+    }
 
-    // Подбор предметов на земле
+    // 3. Центр игрока (один раз для всех блоков ниже)
     sf::Vector2f ppos = player.shape.getPosition();
     float pcx = ppos.x + Player::SIZE / 2.f;
     float pcy = ppos.y + Player::SIZE / 2.f;
 
+    // Поиск ближайшего сундука
+    Chest* prevNearby = nearbyChest;
+    nearbyChest = nullptr;
+
+    for (auto& chest : chests)
+    {
+        float cx = chest.position.x + 16.f;
+        float cy = chest.position.y + 16.f;
+        float dx = cx - pcx;
+        float dy = cy - pcy;
+        float distSq = dx * dx + dy * dy;
+
+        if (distSq < 40.f * 40.f)
+        {
+            nearbyChest = &chest;
+            break;
+        }
+    }
+
+    // Если игрок отошёл от сундука — закрыть его
+    if (prevNearby != nullptr && nearbyChest != prevNearby)
+    {
+        prevNearby->isOpen = false;
+    }
+
+    // 5. Подбор предметов на земле
     for (auto it = droppedItems.begin(); it != droppedItems.end(); )
     {
         it->age += dt;
@@ -222,7 +260,7 @@ void Game::update(float dt)
         float dy = it->position.y - pcy;
         float distSq = dx * dx + dy * dy;
 
-        if (distSq < 15.f * 15.f)  // 15 пикселей
+        if (distSq < 15.f * 15.f)
         {
             const ItemData* data = itemDB.find(it->item.id);
             int maxStack = data ? data->maxStack : 1;
@@ -313,8 +351,16 @@ void Game::render()
     {
         ui.drawHotbar(window, inv, activeSlot);
     }
-    ui.drawInventory(window, inv, activeSlot, isInventoryOpen, isDragging);
 
+    // Сундук (если открыт) — рисуется сверху
+    bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
+    if (chestOpen)
+    {
+        ui.drawChest(window, nearbyChest->inventory, nearbyChest->slotCount, true);
+    }
+
+    // Инвентарь игрока — если открыт инвентарь ИЛИ сундук
+    ui.drawInventory(window, inv, activeSlot, isInventoryOpen || chestOpen, isDragging, chestOpen);
     // Иконка перетаскивания (под курсором)
     if (isDragging)
     {

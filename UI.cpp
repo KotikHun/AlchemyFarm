@@ -140,17 +140,32 @@ void UI::drawInventory(sf::RenderWindow& window,
     const Inventory& inv,
     int activeSlot,
     bool isOpen,
-    bool isDragging)
+    bool isDragging,
+    bool chestOpen)
 {
     if (!isOpen) return;
 
-    // Фон
+    // Фон (сдвигаем, если открыт сундук)
+    sf::Vector2f oldPos = inventoryBg.getPosition();
+    if (chestOpen)
+    {
+        inventoryBg.setPosition({ 150.f, 180.f + 170.f });
+    }
+    else
+    {
+        inventoryBg.setPosition({ 150.f, 180.f });
+    }
     window.draw(inventoryBg);
 
     // Позиция сетки: рюкзак (9x3) сверху, хотбар (9x1) снизу
     const float GRID_X = 150.f + SLOT_PADDING;
-    const float GRID_Y = 180.f + SLOT_PADDING;
+    float GRID_Y = 180.f + SLOT_PADDING;
 
+    // Если открыт сундук — сдвигаем инвентарь игрока вниз
+    if (chestOpen)
+    {
+        GRID_Y += 170.f;  // высота сундука 9×2 + отступ
+    }
     // Рюкзак: слоты 9-35 (27 штук)
     for (int row = 0; row < 3; row++)
     {
@@ -260,5 +275,39 @@ void UI::drawItemIcon(sf::RenderWindow& window,
         countText.setFillColor(sf::Color::White);
         countText.setPosition({ x + 32.f, y + 32.f });
         window.draw(countText);
+    }
+}
+
+
+// ============================================
+// ОТРИСОВКА СУНДУКА
+// ============================================
+void UI::drawChest(sf::RenderWindow& window,
+    const Inventory& chestInv,
+    int slotCount,
+    bool isOpen)
+{
+    if (!isOpen) return;
+
+    const float GRID_X = 150.f + SLOT_PADDING;
+    const float GRID_Y = 40.f + SLOT_PADDING;
+
+    int rows = slotCount / 9;
+
+    for (int row = 0; row < rows; row++)
+    {
+        for (int col = 0; col < 9; col++)
+        {
+            float x = GRID_X + col * (SLOT_SIZE + SLOT_PADDING);
+            float y = GRID_Y + row * (SLOT_SIZE + SLOT_PADDING);
+
+            slotShape.setPosition({ x, y });
+            slotShape.setFillColor(sf::Color(60, 60, 60));
+            window.draw(slotShape);
+
+            int slotIndex = row * 9 + col;
+            const Item& item = chestInv.getSlot(slotIndex);
+            drawItemIcon(window, x, y, item);
+        }
     }
 }

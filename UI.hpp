@@ -72,5 +72,12 @@ struct UI {
         const Inventory& inv,
         int activeSlot,
         bool isOpen,
-        bool isDragging);
+        bool isDragging,
+        bool chestOpen = false);
+
+    // Отрисовка открытого сундука (сетка 9×2 сверху)
+    void drawChest(sf::RenderWindow& window,
+        const Inventory& chestInv,
+        int slotCount,
+        bool isOpen);
 };
