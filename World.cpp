@@ -1,4 +1,5 @@
 #include "World.hpp"
+#include <iostream>
 
 // ============================================
 // КОНСТРУКТОР
@@ -7,6 +8,14 @@ World::World()
 {
     // Настраиваем tileShape
     tileShape.setSize({ TILE_SIZE, TILE_SIZE });
+
+    // Загружаем спрайт травы
+    if (!grassTexture.loadFromFile("assets/sprites/grass.png"))
+    {
+        std::cerr << "World: cannot load grass.png" << std::endl;
+    }
+    grassSprite = std::make_unique<sf::Sprite>(grassTexture);
+    grassSprite->setScale({ 2.f, 2.f });
 
     // Заполняем карту травой
     for (int y = 0; y < HEIGHT; y++)
@@ -35,100 +44,24 @@ void World::draw(sf::RenderWindow& window)
             float px = x * TILE_SIZE;
             float py = y * TILE_SIZE;
 
-            tileShape.setPosition({ px, py });
-
             Tile& t = map[y][x];
 
-            // Цвет тайла зависит от типа и полива
             if (t.type == 0)
             {
-                // 8 оттенков зелёного (разброс шире)
-                sf::Color colors[8] = {
-                    sf::Color(48, 110, 48),
-                    sf::Color(58, 125, 58),
-                    sf::Color(68, 140, 68),
-                    sf::Color(78, 150, 78),
-                    sf::Color(52, 118, 55),
-                    sf::Color(62, 132, 62),
-                    sf::Color(72, 145, 72),
-                    sf::Color(85, 155, 80)
-                };
-                tileShape.setFillColor(colors[t.variant % 8]);
+                grassSprite->setPosition({ px, py });
+                window.draw(*grassSprite);
             }
             else if (t.type == 1)
             {
+                // Грядка — пока цветной квадрат
+                tileShape.setPosition({ px, py });
+
                 if (t.watered)
-                {
                     tileShape.setFillColor(sf::Color(WATERED_SOIL_R, WATERED_SOIL_G, WATERED_SOIL_B));
-                }
                 else
-                {
                     tileShape.setFillColor(sf::Color(SOIL_R, SOIL_G, SOIL_B));
-                }
-            }
 
-            window.draw(tileShape);
-
-            // Чёрточки травы (только для травы, не для грядки)
-                        // Узоры травы (только для травы)
-            if (t.type == 0)
-            {
-                sf::RectangleShape blade({ 2.f, 7.f });
-                blade.setFillColor(sf::Color(30, 80, 30));
-
-                sf::CircleShape dot(2.f);
-                dot.setFillColor(sf::Color(30, 80, 30));
-
-                // Разные узоры по variant (0-7)
-                switch (t.variant % 8)
-                {
-                case 0:  // 3 вертикальные чёрточки
-                    blade.setPosition({ px + 6.f, py + 14.f }); window.draw(blade);
-                    blade.setPosition({ px + 14.f, py + 10.f }); window.draw(blade);
-                    blade.setPosition({ px + 22.f, py + 16.f }); window.draw(blade);
-                    break;
-
-                case 1:  // 2 чёрточки + точка
-                    blade.setPosition({ px + 8.f, py + 12.f }); window.draw(blade);
-                    blade.setPosition({ px + 20.f, py + 18.f }); window.draw(blade);
-                    dot.setPosition({ px + 26.f, py + 8.f }); window.draw(dot);
-                    break;
-
-                case 2:  // 1 чёрточка + 2 точки
-                    blade.setPosition({ px + 15.f, py + 14.f }); window.draw(blade);
-                    dot.setPosition({ px + 6.f, py + 20.f }); window.draw(dot);
-                    dot.setPosition({ px + 24.f, py + 12.f }); window.draw(dot);
-                    break;
-
-                case 3:  // 4 маленькие точки
-                    dot.setPosition({ px + 8.f, py + 10.f }); window.draw(dot);
-                    dot.setPosition({ px + 20.f, py + 10.f }); window.draw(dot);
-                    dot.setPosition({ px + 8.f, py + 22.f }); window.draw(dot);
-                    dot.setPosition({ px + 20.f, py + 22.f }); window.draw(dot);
-                    break;
-
-                case 4:  // 2 длинные чёрточки
-                    blade.setSize({ 2.f, 10.f });
-                    blade.setPosition({ px + 10.f, py + 12.f }); window.draw(blade);
-                    blade.setPosition({ px + 20.f, py + 16.f }); window.draw(blade);
-                    break;
-
-                case 5:  // 1 чёрточка + 1 точка
-                    blade.setPosition({ px + 14.f, py + 16.f }); window.draw(blade);
-                    dot.setPosition({ px + 24.f, py + 12.f }); window.draw(dot);
-                    break;
-
-                case 6:  // 3 диагональные чёрточки (наклон)
-                    blade.setRotation(sf::degrees(30.f));
-                    blade.setPosition({ px + 6.f, py + 16.f }); window.draw(blade);
-                    blade.setPosition({ px + 16.f, py + 12.f }); window.draw(blade);
-                    blade.setPosition({ px + 24.f, py + 18.f }); window.draw(blade);
-                    blade.setRotation(sf::degrees(0.f));  // сброс
-                    break;
-
-                case 7:  // пусто (чистая трава)
-                    break;
-                }
+                window.draw(tileShape);
             }
 
             // Растение (если посажено)

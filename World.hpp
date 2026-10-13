@@ -5,6 +5,7 @@
 #include "Tile.hpp"
 #include "Player.hpp"
 #include "Inventory.hpp"
+#include <memory>
 
 // ============================================
 // ИГРОВОЙ МИР (КАРТА)
@@ -14,6 +15,11 @@
 // и взаимодействие с тайлами.
 
 struct World {
+
+    // Спрайт травы
+    sf::Texture grassTexture;
+    std::unique_ptr<sf::Sprite> grassSprite;
+
     // Размер карты (в тайлах)
     static constexpr int WIDTH = 30;
     static constexpr int HEIGHT = 25;
