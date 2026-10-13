@@ -206,25 +206,33 @@ void UI::drawInventory(sf::RenderWindow& window,
         const Item& item = inv.getSlot(col);
         drawItemIcon(window, x, y, item);
     }
-    // Корзина
-// Подсветка красным при перетаскивании над ней
-    sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
-    float mx = static_cast<float>(mousePixel.x);
-    float my = static_cast<float>(mousePixel.y);
 
-    sf::Vector2f trashPos = trashSlot.getPosition();
-    bool overTrash = isDragging &&
-        mx >= trashPos.x && mx < trashPos.x + SLOT_SIZE &&
-        my >= trashPos.y && my < trashPos.y + SLOT_SIZE;
+    // Корзина — под хотбаром инвентаря, справа
+// Правый край корзины = правый край хотбара (x = 650)
+    if (!chestOpen)
+    {
+        float trashX = 650.f - SLOT_SIZE;
+        float trashY = hotbarY + SLOT_SIZE + 5.f;
 
-    if (overTrash)
-        trashSlot.setFillColor(sf::Color(200, 60, 60));   // красный
-    else
-        trashSlot.setFillColor(sf::Color(80, 40, 40));    // тёмно-красный
+        trashSlot.setPosition({ trashX, trashY });
 
-    window.draw(trashSlot);
+        // Подсветка красным при перетаскивании над ней
+        sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+        float mx = static_cast<float>(mousePixel.x);
+        float my = static_cast<float>(mousePixel.y);
+
+        bool overTrash = isDragging &&
+            mx >= trashX && mx < trashX + SLOT_SIZE &&
+            my >= trashY && my < trashY + SLOT_SIZE;
+
+        if (overTrash)
+            trashSlot.setFillColor(sf::Color(200, 60, 60));   // красный
+        else
+            trashSlot.setFillColor(sf::Color(80, 40, 40));    // тёмно-красный
+
+        window.draw(trashSlot);
+    }
 }
-
 // ============================================
 // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
 // ============================================

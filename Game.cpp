@@ -405,16 +405,16 @@ void Game::render()
     float dayProgress = dayTimer / DAY_LENGTH;
     ui.drawDayBar(window, dayProgress);
     ui.drawTexts(window, currentDay, inv.countItem("seeds"), inv.countItem("leaves"));
-    if (!isInventoryOpen)
-    {
-        ui.drawHotbar(window, inv, activeSlot);
-    }
 
-    // Сундук (если открыт) — рисуется сверху
     bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
     if (chestOpen)
     {
         ui.drawChest(window, nearbyChest->inventory, nearbyChest->slotCount, true);
+    }
+
+    if (!isInventoryOpen && !chestOpen)
+    {
+        ui.drawHotbar(window, inv, activeSlot);
     }
 
     // Инвентарь игрока — если открыт инвентарь ИЛИ сундук
@@ -501,11 +501,14 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
             return col;
     }
 
-    // === 4. КОРЗИНА (-2, со сдвигом) ===
-    float trashX = 650.f - UI::SLOT_SIZE;
-    float trashY = hotbarY + UI::SLOT_SIZE + 5.f;
-    if (isInside(mx, my, trashX, trashY, UI::SLOT_SIZE))
-        return -2;
+    // === 4. КОРЗИНА (-2) — только если сундук не открыт ===
+    if (!chestOpen)
+    {
+        float trashX = 650.f - UI::SLOT_SIZE;
+        float trashY = hotbarY + UI::SLOT_SIZE + 5.f;
+        if (isInside(mx, my, trashX, trashY, UI::SLOT_SIZE))
+            return -2;
+    }
 
     return -1;
 }
