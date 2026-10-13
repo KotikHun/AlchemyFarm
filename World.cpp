@@ -14,6 +14,11 @@ World::World()
         for (int x = 0; x < WIDTH; x++)
         {
             map[y][x].type = 0;
+
+            // Псевдослучайный хэш от (x, y) — выглядит случайно, но стабильно
+            // (тот же тайл всегда с тем же вариантом)
+            int hash = (x * 73856093) ^ (y * 19349663);
+            map[y][x].variant = (hash & 0x7FFFFFFF) % 8;  // 0-7
         }
     }
 }
@@ -37,7 +42,18 @@ void World::draw(sf::RenderWindow& window)
             // Цвет тайла зависит от типа и полива
             if (t.type == 0)
             {
-                tileShape.setFillColor(sf::Color(GRASS_R, GRASS_G, GRASS_B));
+                // 8 оттенков зелёного (разброс шире)
+                sf::Color colors[8] = {
+                    sf::Color(48, 110, 48),
+                    sf::Color(58, 125, 58),
+                    sf::Color(68, 140, 68),
+                    sf::Color(78, 150, 78),
+                    sf::Color(52, 118, 55),
+                    sf::Color(62, 132, 62),
+                    sf::Color(72, 145, 72),
+                    sf::Color(85, 155, 80)
+                };
+                tileShape.setFillColor(colors[t.variant % 8]);
             }
             else if (t.type == 1)
             {
@@ -52,6 +68,68 @@ void World::draw(sf::RenderWindow& window)
             }
 
             window.draw(tileShape);
+
+            // Чёрточки травы (только для травы, не для грядки)
+                        // Узоры травы (только для травы)
+            if (t.type == 0)
+            {
+                sf::RectangleShape blade({ 2.f, 7.f });
+                blade.setFillColor(sf::Color(30, 80, 30));
+
+                sf::CircleShape dot(2.f);
+                dot.setFillColor(sf::Color(30, 80, 30));
+
+                // Разные узоры по variant (0-7)
+                switch (t.variant % 8)
+                {
+                case 0:  // 3 вертикальные чёрточки
+                    blade.setPosition({ px + 6.f, py + 14.f }); window.draw(blade);
+                    blade.setPosition({ px + 14.f, py + 10.f }); window.draw(blade);
+                    blade.setPosition({ px + 22.f, py + 16.f }); window.draw(blade);
+                    break;
+
+                case 1:  // 2 чёрточки + точка
+                    blade.setPosition({ px + 8.f, py + 12.f }); window.draw(blade);
+                    blade.setPosition({ px + 20.f, py + 18.f }); window.draw(blade);
+                    dot.setPosition({ px + 26.f, py + 8.f }); window.draw(dot);
+                    break;
+
+                case 2:  // 1 чёрточка + 2 точки
+                    blade.setPosition({ px + 15.f, py + 14.f }); window.draw(blade);
+                    dot.setPosition({ px + 6.f, py + 20.f }); window.draw(dot);
+                    dot.setPosition({ px + 24.f, py + 12.f }); window.draw(dot);
+                    break;
+
+                case 3:  // 4 маленькие точки
+                    dot.setPosition({ px + 8.f, py + 10.f }); window.draw(dot);
+                    dot.setPosition({ px + 20.f, py + 10.f }); window.draw(dot);
+                    dot.setPosition({ px + 8.f, py + 22.f }); window.draw(dot);
+                    dot.setPosition({ px + 20.f, py + 22.f }); window.draw(dot);
+                    break;
+
+                case 4:  // 2 длинные чёрточки
+                    blade.setSize({ 2.f, 10.f });
+                    blade.setPosition({ px + 10.f, py + 12.f }); window.draw(blade);
+                    blade.setPosition({ px + 20.f, py + 16.f }); window.draw(blade);
+                    break;
+
+                case 5:  // 1 чёрточка + 1 точка
+                    blade.setPosition({ px + 14.f, py + 16.f }); window.draw(blade);
+                    dot.setPosition({ px + 24.f, py + 12.f }); window.draw(dot);
+                    break;
+
+                case 6:  // 3 диагональные чёрточки (наклон)
+                    blade.setRotation(sf::degrees(30.f));
+                    blade.setPosition({ px + 6.f, py + 16.f }); window.draw(blade);
+                    blade.setPosition({ px + 16.f, py + 12.f }); window.draw(blade);
+                    blade.setPosition({ px + 24.f, py + 18.f }); window.draw(blade);
+                    blade.setRotation(sf::degrees(0.f));  // сброс
+                    break;
+
+                case 7:  // пусто (чистая трава)
+                    break;
+                }
+            }
 
             // Растение (если посажено)
             if (t.plantStage > 0)

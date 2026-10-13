@@ -11,4 +11,5 @@ struct Tile {
     int plantStage = 0;    // 0 = пусто, 1 = семечко, 2 = росток, 3 = взрослое
     bool watered = false;  // полито ли
     int daysGrown = 0;     // сколько дней растёт
+    int variant = 0;   // ← 0-7, случайный оттенок травы
 };
