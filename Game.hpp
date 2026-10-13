@@ -45,6 +45,10 @@ struct Game {
     // Сундуки на карте
     std::vector<Chest> chests;
 
+    // Спрайт сундука
+    sf::Texture chestTexture;
+    std::unique_ptr<sf::Sprite> chestSprite;
+
     // Ближайший сундук (для открытия по E)
     Chest* nearbyChest = nullptr;
 

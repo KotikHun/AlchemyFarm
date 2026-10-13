@@ -26,6 +26,14 @@ Game::Game()
     inv.addItem("watering_can", 1, 1);
     inv.addItem("seeds", 5, 99);
 
+    // Загружаем спрайт сундука
+    if (!chestTexture.loadFromFile("assets/sprites/chest.png"))
+    {
+        std::cerr << "Game: cannot load chest.png" << std::endl;
+    }
+    chestSprite = std::make_unique<sf::Sprite>(chestTexture);
+    chestSprite->setScale({ 2.f, 2.f });  // 16×16 → 32×32
+
     // Сундук на карте (деревянный, 18 слотов)
     Chest chest;
     chest.slotCount = 18;
@@ -366,16 +374,8 @@ void Game::render()
     // Сундуки на карте
     for (const auto& chest : chests)
     {
-        sf::RectangleShape chestShape({ 32.f, 32.f });
-        chestShape.setPosition(chest.position);
-        chestShape.setFillColor(sf::Color(139, 69, 19));
-        window.draw(chestShape);
-
-        // Крышка
-        sf::RectangleShape lid({ 32.f, 8.f });
-        lid.setPosition({ chest.position.x, chest.position.y - 4.f });
-        lid.setFillColor(sf::Color(80, 40, 10));
-        window.draw(lid);
+        chestSprite->setPosition(chest.position);
+        window.draw(*chestSprite);
     }
 
     // Предметы на земле
