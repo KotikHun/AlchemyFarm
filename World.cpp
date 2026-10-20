@@ -17,6 +17,14 @@ World::World()
     grassSprite = std::make_unique<sf::Sprite>(grassTexture);
     grassSprite->setScale({ 2.f, 2.f });
 
+    // Загружаем спрайт грядки
+    if (!farmlandTexture.loadFromFile("assets/sprites/farmland.png"))
+    {
+        std::cerr << "World: cannot load farmland.png" << std::endl;
+    }
+    farmlandSprite = std::make_unique<sf::Sprite>(farmlandTexture);
+    farmlandSprite->setScale({ 32.f / 48.f, 32.f / 48.f });  // 48×48 → 32×32
+
     // Заполняем карту травой
     for (int y = 0; y < HEIGHT; y++)
     {
@@ -53,15 +61,18 @@ void World::draw(sf::RenderWindow& window)
             }
             else if (t.type == 1)
             {
-                // Грядка — пока цветной квадрат
-                tileShape.setPosition({ px, py });
+                // Грядка — спрайт
+                farmlandSprite->setPosition({ px, py });
+                window.draw(*farmlandSprite);
 
+                // Политая грядка — тёмный полупрозрачный слой сверху
                 if (t.watered)
-                    tileShape.setFillColor(sf::Color(WATERED_SOIL_R, WATERED_SOIL_G, WATERED_SOIL_B));
-                else
-                    tileShape.setFillColor(sf::Color(SOIL_R, SOIL_G, SOIL_B));
-
-                window.draw(tileShape);
+                {
+                    sf::RectangleShape waterOverlay({ TILE_SIZE, TILE_SIZE });
+                    waterOverlay.setPosition({ px, py });
+                    waterOverlay.setFillColor(sf::Color(30, 30, 60, 80));  // тёмно-синий, полупрозрачный
+                    window.draw(waterOverlay);
+                }
             }
 
             // Растение (если посажено)

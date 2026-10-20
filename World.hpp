@@ -20,6 +20,10 @@ struct World {
     sf::Texture grassTexture;
     std::unique_ptr<sf::Sprite> grassSprite;
 
+    // Спрайт грядки
+    sf::Texture farmlandTexture;
+    std::unique_ptr<sf::Sprite> farmlandSprite;
+
     // Размер карты (в тайлах)
     static constexpr int WIDTH = 30;
     static constexpr int HEIGHT = 25;
