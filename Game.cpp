@@ -2,48 +2,158 @@
 #include <iostream>
 #include <cmath>
 
-// ============================================
-// ВСПОМОГАТЕЛЬНОЕ
-// ============================================
 static bool isInside(float mx, float my, float x, float y, float size)
 {
     return mx >= x && mx < x + size && my >= y && my < y + size;
+}
+
+static bool isInsideRect(float mx, float my, float x, float y, float w, float h)
+{
+    return mx >= x && mx < x + w && my >= y && my < y + h;
 }
 
 // ============================================
 // КОНСТРУКТОР
 // ============================================
 Game::Game()
-    : window(sf::VideoMode({ 800, 600 }), "Alchemy Farm")
+    : window(sf::VideoMode({ 960, 800 }), toUtf8("Alchemy Farm")),
+      player()
 {
-    // Загружаем базу предметов
+    window.setFramerateLimit(60);
+    window.setKeyRepeatEnabled(false);
+
+    // Загрузка базы предметов из JSON
     if (!itemDB.loadFromFile("data/items.json"))
     {
-        std::cerr << "GAME: items.json NOT LOADED" << std::endl;
+        std::cerr << "Game: cannot load data/items.json" << std::endl;
     }
-    // Начальный инвентарь
+
+    // Стартовые предметы игрока (мотыга, лейка, топор, кирка, семена, ягоды, пустые флаконы, стол алхимика)
     inv.addItem("hoe", 1, 1);
     inv.addItem("watering_can", 1, 1);
-    inv.addItem("seeds", 5, 99);
+    inv.addItem("axe", 1, 1);
+    inv.addItem("pickaxe", 1, 1);
+    inv.addItem("seeds", 10, 99);
+    inv.addItem("berry", 5, 99);
+    inv.addItem("empty_flask", 3, 99);
+    inv.addItem("alchemist_table", 1, 99);
 
-    // Загружаем спрайт сундука
-    if (!chestTexture.loadFromFile("assets/sprites/chest.png"))
+    // 1. Спрайт сундука
+    if (chestTexture.loadFromFile("assets/sprites/chest.png"))
     {
-        std::cerr << "Game: cannot load chest.png" << std::endl;
+        chestSprite = std::make_unique<sf::Sprite>(chestTexture);
+        chestSprite->setScale({ 2.f, 2.f });
     }
-    chestSprite = std::make_unique<sf::Sprite>(chestTexture);
-    chestSprite->setScale({ 2.f, 2.f });  // 16×16 → 32×32
 
-    // Сундук на карте (деревянный, 18 слотов)
+    // 2. Спрайт кровати (Origin: Bottom Center)
+    if (bedTexture.loadFromFile("assets/sprites/bed_wooden.png"))
+    {
+        bedSprite = std::make_unique<sf::Sprite>(bedTexture);
+        bedSprite->setOrigin({ 16.f, 55.f });
+        bedSprite->setScale({ 1.5f, 1.5f });
+    }
+
+    // 3. Анимированный стол алхимика (8 кадров 48x64)
+    if (tableTexture.loadFromFile("assets/sprites/alchemy_table_clean.png") ||
+        tableTexture.loadFromFile("assets/sprites/alchemy_table_anim.png"))
+    {
+        tableSprite = std::make_unique<sf::Sprite>(tableTexture);
+        tableSprite->setScale({ 1.0f, 1.0f });
+    }
+
+    // 4. Анимированный котел (4 кадра 36x40)
+    if (cauldronAnimTexture.loadFromFile("assets/sprites/cauldron_anim.png"))
+    {
+        cauldronAnimSprite = std::make_unique<sf::Sprite>(cauldronAnimTexture);
+        cauldronAnimSprite->setScale({ 1.0f, 1.0f });
+    }
+
+    // 5. Узорный ковер (размер 64x96 px = ровно 2 на 3 тайла)
+    if (carpetTexture.loadFromFile("assets/sprites/carpet.png"))
+    {
+        carpetSprite = std::make_unique<sf::Sprite>(carpetTexture);
+        carpetSprite->setScale({ 1.0f, 1.0f });
+    }
+
+    // --- СТАРТОВЫЕ ОБЪЕКТЫ НА УЛИЦЕ ---
+    // Стартовый сундук на карте
     Chest chest;
     chest.slotCount = 18;
     chest.type = "wooden";
-    chest.position = { 10 * 32.f, 10 * 32.f };  // тайл (10, 10) = {320, 320}
+    chest.position = { 14 * 32.f, 10 * 32.f };
+    chest.isInside = false;
     chests.push_back(chest);
+
+    // Магический котел возле сундука
+    Furniture cauldronObj;
+    cauldronObj.id = "cauldron";
+    cauldronObj.position = { 15 * 32.f + 8.f, 10 * 32.f };
+    cauldronObj.isInside = false;
+    furniture.push_back(cauldronObj);
+
+    // --- СТАРТОВЫЕ ОБЪЕКТЫ ВНУТРИ ДОМА ---
+    // Деревянная кровать в верхнем левом углу комнаты
+    Furniture bedObj;
+    bedObj.id = "bed";
+    bedObj.position = { House::ROOM_X + 32.f, House::ROOM_Y + 85.f };
+    bedObj.isInside = true;
+    furniture.push_back(bedObj);
+
+    // Узорный ковер (2x3 тайла) в центре комнаты
+    Furniture carpetObj;
+    carpetObj.id = "carpet";
+    carpetObj.position = { House::ROOM_X + 160.f, House::ROOM_Y + 80.f };
+    carpetObj.isInside = true;
+    furniture.push_back(carpetObj);
 
     // Маркер тайла перед игроком
     targetMarker.setSize({ World::TILE_SIZE, World::TILE_SIZE });
-    targetMarker.setFillColor(sf::Color(255, 255, 0, 100));
+    targetMarker.setFillColor(sf::Color(255, 255, 0, 80));
+    targetMarker.setOutlineColor(sf::Color(255, 255, 255, 140));
+    targetMarker.setOutlineThickness(1.5f);
+
+    // Стартовая позиция игрока — на крыльце/коврике перед дверью нового дома
+    player.shape.setPosition({ house.exteriorPos.x + 32.f - 16.f, house.exteriorPos.y - 48.f });
+
+    // Уведомление о стартовом предмете в руках
+    triggerActiveSlotNotification();
+}
+
+// ============================================
+// СОН В КРОВАТИ И СМЕНА ДНЯ
+// ============================================
+void Game::sleepInBed(bool fullRest)
+{
+    timeSystem.advanceDay(fullRest);
+    world.updateGrowth();
+
+    if (fullRest)
+    {
+        player.energy = player.maxEnergy;
+        player.isExhausted = false;
+
+        FloatingText ft;
+        ft.text = "Доброе утро! Новый день наступил (энергия 100%).";
+        ft.position = { player.shape.getPosition().x - 120.f, player.shape.getPosition().y - 40.f };
+        ft.color = sf::Color(140, 255, 160);
+        ft.timer = 2.5f;
+        floatingTexts.push_back(ft);
+    }
+    else
+    {
+        // Потеря сознания от усталости в 02:00
+        player.energy = player.maxEnergy * 0.5f;
+        player.isExhausted = false;
+        house.isInside = true;
+        player.shape.setPosition({ house.bedPos.x, house.bedPos.y + 20.f });
+
+        FloatingText ft;
+        ft.text = "Вы потеряли сознание от усталости... (энергия 50%).";
+        ft.position = { player.shape.getPosition().x - 130.f, player.shape.getPosition().y - 40.f };
+        ft.color = sf::Color(255, 110, 110);
+        ft.timer = 3.0f;
+        floatingTexts.push_back(ft);
+    }
 }
 
 // ============================================
@@ -54,6 +164,7 @@ void Game::run()
     while (window.isOpen())
     {
         float dt = clock.restart().asSeconds();
+        if (dt > 0.1f) dt = 0.1f;
 
         handleEvents();
         update(dt);
@@ -62,376 +173,1093 @@ void Game::run()
 }
 
 // ============================================
-// ОБРАБОТКА СОБЫТИЙ
+// ОБРАБОТКА ВВОДА
 // ============================================
 void Game::handleEvents()
 {
-    while (const std::optional event = window.pollEvent())
+    while (const auto event = window.pollEvent())
     {
         if (event->is<sf::Event::Closed>())
         {
             window.close();
+            return;
         }
 
-        // === КЛАВИАТУРА ===
+        // --- КЛАВИАТУРА ---
         if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
-            // Хотбар: 1-9
-            if (keyPressed->code == sf::Keyboard::Key::Num1) activeSlot = 0;
-            else if (keyPressed->code == sf::Keyboard::Key::Num2) activeSlot = 1;
-            else if (keyPressed->code == sf::Keyboard::Key::Num3) activeSlot = 2;
-            else if (keyPressed->code == sf::Keyboard::Key::Num4) activeSlot = 3;
-            else if (keyPressed->code == sf::Keyboard::Key::Num5) activeSlot = 4;
-            else if (keyPressed->code == sf::Keyboard::Key::Num6) activeSlot = 5;
-            else if (keyPressed->code == sf::Keyboard::Key::Num7) activeSlot = 6;
-            else if (keyPressed->code == sf::Keyboard::Key::Num8) activeSlot = 7;
-            else if (keyPressed->code == sf::Keyboard::Key::Num9) activeSlot = 8;
-
-            // Инвентарь
-            if (keyPressed->code == sf::Keyboard::Key::I)
+            // Escape: закрыть открытые окна
+            if (keyPressed->code == sf::Keyboard::Key::Escape)
             {
-                isInventoryOpen = !isInventoryOpen;
+                if (alchemy.showRecipes) alchemy.showRecipes = false;
+                else if (alchemy.isCauldronOpen) alchemy.isCauldronOpen = false;
+                else if (alchemy.isTableOpen) alchemy.isTableOpen = false;
+                else if (nearbyChest && nearbyChest->isOpen) nearbyChest->isOpen = false;
+                else if (isInventoryOpen) isInventoryOpen = false;
+                return;
             }
 
-            // E: сундук или мир
+            // Открытие / закрытие рецептов в котле на R
+            if (keyPressed->code == sf::Keyboard::Key::R)
+            {
+                if (alchemy.isCauldronOpen)
+                {
+                    alchemy.showRecipes = !alchemy.showRecipes;
+                    return;
+                }
+            }
+
+            // Открытие / закрытие инвентаря на I или Tab
+            if (keyPressed->code == sf::Keyboard::Key::I || keyPressed->code == sf::Keyboard::Key::Tab)
+            {
+                if (!alchemy.isCauldronOpen && !alchemy.isTableOpen)
+                {
+                    isInventoryOpen = !isInventoryOpen;
+                    if (isInventoryOpen && nearbyChest != nullptr)
+                    {
+                        nearbyChest->isOpen = false;
+                    }
+                }
+                return;
+            }
+
+            // Выбор слота хотбара 1-9
+            if (keyPressed->code >= sf::Keyboard::Key::Num1 && keyPressed->code <= sf::Keyboard::Key::Num9)
+            {
+                activeSlot = static_cast<int>(keyPressed->code) - static_cast<int>(sf::Keyboard::Key::Num1);
+                triggerActiveSlotNotification();
+                return;
+            }
+
+            // Взаимодействие на E
             if (keyPressed->code == sf::Keyboard::Key::E)
             {
+                if (player.isActing) return;
+
+                if (alchemy.isCauldronOpen)
+                {
+                    if (alchemy.showRecipes)
+                    {
+                        alchemy.showRecipes = false;
+                        return;
+                    }
+                    alchemy.isCauldronOpen = false;
+                    return;
+                }
+                if (alchemy.isTableOpen)
+                {
+                    alchemy.isTableOpen = false;
+                    return;
+                }
+                if (nearbyChest != nullptr && nearbyChest->isOpen)
+                {
+                    nearbyChest->isOpen = false;
+                    return;
+                }
+                if (isInventoryOpen)
+                {
+                    isInventoryOpen = false;
+                    return;
+                }
+
+                sf::Vector2f ppos = player.shape.getPosition();
+                const Item& activeItem = inv.getSlot(activeSlot);
+                bool hasTool = (activeItem.id == "axe" || activeItem.id == "pickaxe");
+
+                // 1. Двери (вход и выход из дома по направлению взгляда)
+                if (house.isInside && house.isNearExitDoor(ppos) && player.dirY > 0)
+                {
+                    house.exit(player);
+                    return;
+                }
+                if (!house.isInside && house.isNearExteriorDoor(ppos) && player.dirY < 0)
+                {
+                    house.enter(player);
+                    return;
+                }
+
+                // 2. Если в руках топор или кирка: попытка забрать мебель
+                if (hasTool)
+                {
+                    if (tryPickupFurniture())
+                    {
+                        player.playAction(activeItem.id == "axe" ? PlayerAction::Axe : PlayerAction::Pickaxe);
+                        return;
+                    }
+                }
+
+                // 3. Сундук
                 if (nearbyChest != nullptr)
                 {
                     nearbyChest->isOpen = !nearbyChest->isOpen;
+                    return;
                 }
-                else
+
+                // 4. Мебель (кровать, котел, стол)
+                if (nearbyFurnitureIdx >= 0 && nearbyFurnitureIdx < static_cast<int>(furniture.size()))
                 {
-                    const Item& activeItem = inv.getSlot(activeSlot);
-                    world.interact(player, activeItem.id, inv);
+                    auto& f = furniture[nearbyFurnitureIdx];
+                    if (f.id == "bed")
+                    {
+                        sleepInBed(true);
+                        return;
+                    }
+                    if (f.id == "cauldron")
+                    {
+                        alchemy.isCauldronOpen = !alchemy.isCauldronOpen;
+                        return;
+                    }
+                    if (f.id == "alchemist_table")
+                    {
+                        alchemy.isTableOpen = !alchemy.isTableOpen;
+                        return;
+                    }
                 }
+
+                // 5. Установка мебели из рук перед собой (сундук, кровать, котел, стол, ковер)
+                if (activeItem.id == "chest" || activeItem.id == "bed" || activeItem.id == "alchemist_table" ||
+                    activeItem.id == "cauldron" || activeItem.id == "carpet")
+                {
+                    if (tryPlaceFurniture(activeItem.id))
+                    {
+                        return;
+                    }
+                }
+
+                // 6. Набор воды во флакон
+                if (activeItem.id == "empty_flask")
+                {
+                    int pcx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirX;
+                    int pcy = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirY;
+                    if (pcx >= 0 && pcx < World::WIDTH && pcy >= 0 && pcy < World::HEIGHT)
+                    {
+                        if (world.map[pcy][pcx].type == 2) // Вода
+                        {
+                            inv.removeItem("empty_flask", 1);
+                            inv.addItem("water_flask", 1, 99);
+                            FloatingText ft;
+                            ft.text = "+1 Флакон с чистой водой";
+                            ft.position = { ppos.x - 20.f, ppos.y - 25.f };
+                            ft.color = sf::Color(140, 220, 255);
+                            ft.timer = 1.4f;
+                            floatingTexts.push_back(ft);
+                            return;
+                        }
+                    }
+                }
+
+                // 7. Анимация действий инструментами
+                if (activeItem.id == "hoe") { player.playAction(PlayerAction::Hoe); player.useEnergy(2.f); }
+                else if (activeItem.id == "watering_can") { player.playAction(PlayerAction::Water); player.useEnergy(1.f); }
+                else if (activeItem.id == "axe") { player.playAction(PlayerAction::Axe); player.useEnergy(2.f); }
+                else if (activeItem.id == "pickaxe") { player.playAction(PlayerAction::Pickaxe); player.useEnergy(2.f); }
+
+                // Взаимодействие с миром (грядки, сорняки, деревья)
+                if (!house.isInside)
+                {
+                    world.interact(player, activeItem.id, inv, droppedItems);
+                }
+                return;
             }
 
-            // Q: выбросить
+            // Выбросить предмет на Q
             if (keyPressed->code == sf::Keyboard::Key::Q)
             {
-                const Item& item = inv.getSlot(activeSlot);
-                if (!item.isEmpty())
+                const Item& itm = inv.getSlot(activeSlot);
+                if (!itm.isEmpty())
                 {
-                    sf::Vector2f ppos = player.shape.getPosition();
-                    float cx = ppos.x + Player::SIZE / 2.f;
-                    float cy = ppos.y + Player::SIZE / 2.f;
-
                     DroppedItem drop;
-                    drop.item = item;
+                    drop.item = Item{ itm.id, 1 };
                     drop.position = {
-                        cx + player.dirX * 32.f - 12.f,
-                        cy + player.dirY * 32.f - 12.f
+                        player.shape.getPosition().x + player.dirX * 24.f,
+                        player.shape.getPosition().y + player.dirY * 24.f
                     };
                     droppedItems.push_back(drop);
-
-                    inv.setSlot(activeSlot, Item{});
+                    inv.removeItem(itm.id, 1);
                 }
+                return;
             }
         }
 
-        // === МЫШЬ: НАЧАЛО ПЕРЕТАСКИВАНИЯ ===
+        // --- МЫШЬ (ЛКМ) ---
         if (const auto* mousePressed = event->getIf<sf::Event::MouseButtonPressed>())
         {
             if (mousePressed->button == sf::Mouse::Button::Left)
             {
-                int slot = getSlotUnderMouse(sf::Mouse::getPosition(window));
+                sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+                float mx = static_cast<float>(mousePixel.x);
+                float my = static_cast<float>(mousePixel.y);
 
-                if (slot >= 100 && nearbyChest != nullptr)
+                // 1. Интерактивный котел
+                if (alchemy.isCauldronOpen)
                 {
-                    // Из сундука
-                    int chestSlot = slot - 100;
-                    const Item& item = nearbyChest->inventory.getSlot(chestSlot);
-                    if (!item.isEmpty())
+                    float winX = 60.f;
+                    float winY = 60.f;
+
+                    // Если открыта книга рецептов: клик по [X] или вне закрывает её
+                    if (alchemy.showRecipes)
                     {
-                        isDragging = true;
-                        draggedItem = item;
-                        draggedFromSlot = slot;
-                        nearbyChest->inventory.setSlot(chestSlot, Item{});
+                        float bx = winX + 110.f;
+                        float by = winY + 35.f;
+                        float cx = bx + 460.f - 36.f;
+                        float cy = by + 12.f;
+                        if (isInside(mx, my, cx, cy, 26.f) || !isInside(mx, my, bx, by, 460.f))
+                        {
+                            alchemy.showRecipes = false;
+                            return;
+                        }
+                        return;
+                    }
+
+                    // Кнопка [X] закрытия котла
+                    if (isInside(mx, my, winX + 735.f, winY + 20.f, 32.f))
+                    {
+                        alchemy.isCauldronOpen = false;
+                        alchemy.showRecipes = false;
+                        return;
+                    }
+
+                    // Кнопка "Рецепты [R]"
+                    float recBtnX = winX + 510.f;
+                    float recBtnY = winY + 16.f;
+                    if (isInside(mx, my, recBtnX, recBtnY, 145.f))
+                    {
+                        alchemy.showRecipes = !alchemy.showRecipes;
+                        return;
+                    }
+
+                    // Кнопка "Сварить"
+                    float btnX = winX + 475.f;
+                    float btnY = winY + 400.f;
+                    float btnW = 160.f;
+                    if (isInside(mx, my, btnX, btnY, btnW) && !alchemy.isBrewing)
+                    {
+                        std::string err;
+                        if (!alchemy.tryStartBrewing(err))
+                        {
+                            FloatingText ft;
+                            ft.text = err;
+                            ft.position = { winX + 430.f, winY + 360.f };
+                            ft.color = sf::Color(255, 120, 120);
+                            ft.timer = 1.5f;
+                            floatingTexts.push_back(ft);
+                        }
+                        return;
+                    }
+
+                    // Центральный слот базы
+                    float cauldronCenterX = winX + 555.f;
+                    float cauldronCenterY = winY + 235.f;
+                    float baseSlotX = cauldronCenterX - 20.f;
+                    float baseSlotY = cauldronCenterY - 10.f;
+                    if (isInside(mx, my, baseSlotX, baseSlotY, 40.f))
+                    {
+                        if (!alchemy.cauldronBase.isEmpty())
+                        {
+                            inv.addItem(alchemy.cauldronBase.id, alchemy.cauldronBase.count, 99);
+                            alchemy.cauldronBase = Item{};
+                        }
+                        return;
+                    }
+
+                    // 6 слотов ингредиентов вокруг котла
+                    float radius = 85.f;
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float angle = i * (3.14159265f / 3.f) - 3.14159265f / 2.f;
+                        float sx = cauldronCenterX + std::cos(angle) * radius - 20.f;
+                        float sy = cauldronCenterY + std::sin(angle) * radius - 20.f;
+
+                        if (isInside(mx, my, sx, sy, 40.f))
+                        {
+                            if (!alchemy.cauldronIngredients[i].isEmpty())
+                            {
+                                inv.addItem(alchemy.cauldronIngredients[i].id, alchemy.cauldronIngredients[i].count, 99);
+                                alchemy.cauldronIngredients[i] = Item{};
+                            }
+                            return;
+                        }
+                    }
+
+                    // Слоты инвентаря слева
+                    float invX = winX + 20.f;
+                    float invY = winY + 80.f;
+                    float slotSize = 40.f;
+                    float slotPad = 4.f;
+
+                    for (int row = 0; row < 4; row++)
+                    {
+                        for (int col = 0; col < 9; col++)
+                        {
+                            float sx = invX + col * (slotSize + slotPad);
+                            float sy = invY + row * (slotSize + slotPad);
+                            if (isInside(mx, my, sx, sy, slotSize))
+                            {
+                                int slotIdx = (row == 3) ? col : (9 + row * 9 + col);
+                                const Item& item = inv.getSlot(slotIdx);
+                                if (!item.isEmpty())
+                                {
+                                    if (item.id == "empty_flask" || item.id == "water_flask")
+                                    {
+                                        if (alchemy.cauldronBase.isEmpty())
+                                        {
+                                            alchemy.cauldronBase = Item{ item.id, 1 };
+                                            inv.removeItem(item.id, 1);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        for (int i = 0; i < 6; i++)
+                                        {
+                                            if (alchemy.cauldronIngredients[i].isEmpty())
+                                            {
+                                                alchemy.cauldronIngredients[i] = Item{ item.id, 1 };
+                                                inv.removeItem(item.id, 1);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                return;
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // 2. Стол алхимика (Ступка и пестик)
+                if (alchemy.isTableOpen)
+                {
+                    float winX = 60.f;
+                    float winY = 60.f;
+
+                    // Кнопка [X]
+                    if (isInside(mx, my, winX + 735.f, winY + 20.f, 32.f))
+                    {
+                        alchemy.isTableOpen = false;
+                        return;
+                    }
+
+                    float rightCenterX = winX + 600.f;
+                    float inX = rightCenterX - 110.f;
+                    float inY = winY + 180.f;
+                    float outX = rightCenterX + 60.f;
+                    float outY = winY + 180.f;
+
+                    // Забрать из входного слота
+                    if (isInside(mx, my, inX, inY, 50.f))
+                    {
+                        if (!alchemy.mortarInput.isEmpty())
+                        {
+                            inv.addItem(alchemy.mortarInput.id, alchemy.mortarInput.count, 99);
+                            alchemy.mortarInput = Item{};
+                        }
+                        return;
+                    }
+
+                    // Забрать из выходного слота
+                    if (isInside(mx, my, outX, outY, 50.f))
+                    {
+                        if (!alchemy.mortarOutput.isEmpty())
+                        {
+                            inv.addItem(alchemy.mortarOutput.id, alchemy.mortarOutput.count, 99);
+                            alchemy.mortarOutput = Item{};
+                        }
+                        return;
+                    }
+
+                    // Кнопка "Перетереть"
+                    float btnX = rightCenterX - 90.f;
+                    float btnY = winY + 330.f;
+                    if (isInside(mx, my, btnX, btnY, 180.f) && alchemy.canGrind() && !alchemy.isGrinding)
+                    {
+                        alchemy.startGrinding();
+                        return;
+                    }
+
+                    // Слоты инвентаря слева
+                    float invX = winX + 25.f;
+                    float invY = winY + 90.f;
+                    float slotSize = 40.f;
+                    float slotPad = 4.f;
+
+                    for (int row = 0; row < 4; row++)
+                    {
+                        for (int col = 0; col < 9; col++)
+                        {
+                            float sx = invX + col * (slotSize + slotPad);
+                            float sy = invY + row * (slotSize + slotPad);
+                            if (isInside(mx, my, sx, sy, slotSize))
+                            {
+                                int slotIdx = (row == 3) ? col : (9 + row * 9 + col);
+                                const Item& item = inv.getSlot(slotIdx);
+                                if (!item.isEmpty())
+                                {
+                                    if (item.id == "berry" || item.id == "leaves" || item.id == "fiber")
+                                    {
+                                        if (alchemy.mortarInput.isEmpty())
+                                        {
+                                            alchemy.mortarInput = Item{ item.id, 1 };
+                                            inv.removeItem(item.id, 1);
+                                        }
+                                        else if (alchemy.mortarInput.id == item.id && alchemy.mortarInput.count < 99)
+                                        {
+                                            alchemy.mortarInput.count++;
+                                            inv.removeItem(item.id, 1);
+                                        }
+                                    }
+                                }
+                                return;
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // 3. Вкладки в инвентаре
+                bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
+                if (isInventoryOpen && !chestOpen)
+                {
+                    // Клик по вкладкам сверху (Рюкзак, Крафт, Дневник)
+                    if (my >= 175.f && my <= 207.f && mx >= 225.f && mx <= 540.f)
+                    {
+                        int tabIdx = static_cast<int>((mx - 225.f) / 105.f);
+                        if (tabIdx >= 0 && tabIdx < 3)
+                        {
+                            currentTab = static_cast<InventoryTab>(tabIdx);
+                            return;
+                        }
+                    }
+
+                    // Вкладка Дневника (выбор категорий справа)
+                    if (currentTab == InventoryTab::Journal)
+                    {
+                        float tabX = 235.f + 350.f + 10.f; // 595.f
+                        if (mx >= tabX && mx <= tabX + 120.f)
+                        {
+                            for (int c = 0; c < 3; c++)
+                            {
+                                float ty = 220.f + 15.f + c * 44.f;
+                                if (my >= ty && my <= ty + 34.f)
+                                {
+                                    journalCategory = c;
+                                    return;
+                                }
+                            }
+                        }
+                        return;
+                    }
+
+                    // Вкладка Крафта
+                    if (currentTab == InventoryTab::Crafting)
+                    {
+                        float startX = 235.f;
+                        float startY = 225.f;
+                        float rowW = 490.f;
+                        float itemH = 58.f;
+
+                        for (int r = 0; r < 4; r++)
+                        {
+                            float y = startY + r * (itemH + 8.f);
+                            if (isInsideRect(mx, my, startX, y, rowW, itemH))
+                            {
+                                sf::Vector2f ppos = player.shape.getPosition();
+                                if (r == 0)
+                                {
+                                    if (inv.countItem("wood") >= 20)
+                                    {
+                                        inv.removeItem("wood", 20);
+                                        inv.addItem("chest", 1, 99);
+                                        FloatingText ft;
+                                        ft.text = "+1 Сундук создан!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 220, 100);
+                                        ft.timer = 1.5f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                    else
+                                    {
+                                        FloatingText ft;
+                                        ft.text = "Нужно 20 Древесины!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 100, 100);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                }
+                                else if (r == 1)
+                                {
+                                    if (inv.countItem("wood") >= 15 && inv.countItem("stone") >= 10)
+                                    {
+                                        inv.removeItem("wood", 15);
+                                        inv.removeItem("stone", 10);
+                                        inv.addItem("alchemist_table", 1, 99);
+                                        FloatingText ft;
+                                        ft.text = "+1 Стол алхимика создан!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 215, 110);
+                                        ft.timer = 1.5f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                    else
+                                    {
+                                        FloatingText ft;
+                                        ft.text = "Нужно 15 Дерева и 10 Камня!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 100, 100);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                }
+                                else if (r == 2)
+                                {
+                                    if (inv.countItem("stone") >= 1)
+                                    {
+                                        inv.removeItem("stone", 1);
+                                        inv.addItem("empty_flask", 1, 99);
+                                        FloatingText ft;
+                                        ft.text = "+1 Пустой флакон создан!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(180, 240, 255);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                    else
+                                    {
+                                        FloatingText ft;
+                                        ft.text = "Нужен 1 Камень!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 100, 100);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                }
+                                else if (r == 3)
+                                {
+                                    if (inv.countItem("berry") >= 1)
+                                    {
+                                        inv.removeItem("berry", 1);
+                                        inv.addItem("seeds", 2, 99);
+                                        FloatingText ft;
+                                        ft.text = "+2 Семени получено!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(160, 255, 160);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                    else
+                                    {
+                                        FloatingText ft;
+                                        ft.text = "Нужна 1 Ягода!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 100, 100);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                }
+                                return;
+                            }
+                        }
+                        return;
                     }
                 }
-                else if (slot >= 0 && slot < 36)
+
+                // 4. Перетаскивание предметов (Drag & Drop) и быстрый перенос (Shift + LMB)
+                if (isInventoryOpen || chestOpen)
                 {
-                    // Из инвентаря игрока
-                    const Item& item = inv.getSlot(slot);
-                    if (!item.isEmpty())
+                    bool isShift = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift) ||
+                                   sf::Keyboard::isKeyPressed(sf::Keyboard::Key::RShift);
+
+                    if (chestOpen && nearbyChest != nullptr)
                     {
-                        isDragging = true;
-                        draggedItem = item;
-                        draggedFromSlot = slot;
-                        inv.setSlot(slot, Item{});
+                        int cslot = getChestSlotUnderMouse(mousePixel);
+                        if (cslot != -1)
+                        {
+                            if (isShift)
+                            {
+                                transferToPlayer(*nearbyChest, cslot, inv, itemDB);
+                                return;
+                            }
+                            const Item& itm = nearbyChest->inventory.getSlot(cslot);
+                            if (!itm.isEmpty())
+                            {
+                                isDragging = true;
+                                draggedItem = itm;
+                                draggedFromSlot = cslot;
+                                draggedFromChest = true;
+                                nearbyChest->inventory.setSlot(cslot, Item{});
+                                return;
+                            }
+                        }
+                    }
+
+                    int slot = getSlotUnderMouse(mousePixel);
+                    if (slot != -1)
+                    {
+                        if (chestOpen && nearbyChest != nullptr && isShift)
+                        {
+                            transferToChest(inv, slot, *nearbyChest, itemDB);
+                            return;
+                        }
+                        const Item& itm = inv.getSlot(slot);
+                        if (!itm.isEmpty())
+                        {
+                            isDragging = true;
+                            draggedItem = itm;
+                            draggedFromSlot = slot;
+                            draggedFromChest = false;
+                            draggedFromHotbar = (slot < 9);
+                            inv.setSlot(slot, Item{});
+                            return;
+                        }
+                    }
+                }
+                else if (!alchemy.isCauldronOpen && !alchemy.isTableOpen)
+                {
+                    // Клик мыши по ячейке хотбара делает её активной
+                    float totalHotbarWidth = UI::HOTBAR_SLOTS * UI::SLOT_SIZE + (UI::HOTBAR_SLOTS + 1) * UI::SLOT_PADDING;
+                    float hotbarX = (static_cast<float>(window.getSize().x) - totalHotbarWidth) / 2.f;
+                    float hotbarY = static_cast<float>(window.getSize().y) - UI::SLOT_SIZE - 20.f;
+
+                    bool clickedHotbar = false;
+                    for (int i = 0; i < UI::HOTBAR_SLOTS; i++)
+                    {
+                        float sx = hotbarX + UI::SLOT_PADDING + i * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+                        if (isInside(mx, my, sx, hotbarY, UI::SLOT_SIZE))
+                        {
+                            activeSlot = i;
+                            triggerActiveSlotNotification();
+                            clickedHotbar = true;
+                            return;
+                        }
+                    }
+
+                    if (!clickedHotbar)
+                    {
+                        const Item& actItm = inv.getSlot(activeSlot);
+                        if (actItm.id == "axe" || actItm.id == "pickaxe")
+                        {
+                            if (tryPickupFurniture())
+                            {
+                                player.playAction(actItm.id == "axe" ? PlayerAction::Axe : PlayerAction::Pickaxe);
+                                return;
+                            }
+                        }
+                        else if (actItm.id == "chest" || actItm.id == "bed" || actItm.id == "alchemist_table" ||
+                                 actItm.id == "cauldron" || actItm.id == "carpet")
+                        {
+                            sf::Vector2f ppos = player.shape.getPosition();
+                            int ptx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / 32.f);
+                            int pty = static_cast<int>((ppos.y + Player::SIZE / 2.f) / 32.f);
+                            int htx = static_cast<int>(mx / 32.f);
+                            int hty = static_cast<int>(my / 32.f);
+
+                            if (std::abs(htx - ptx) <= 3 && std::abs(hty - pty) <= 3)
+                            {
+                                if (tryPlaceFurnitureAt(actItm.id, htx, hty))
+                                {
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                if (tryPlaceFurniture(actItm.id))
+                                {
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // ПКМ: Подробный осмотр предмета или употребление зелий/ягод
+            else if (mousePressed->button == sf::Mouse::Button::Right)
+            {
+                sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+                float mx = static_cast<float>(mousePixel.x);
+                float my = static_cast<float>(mousePixel.y);
+
+                // 1. Проверяем клик ПКМ по предмету в котле
+                if (alchemy.isCauldronOpen)
+                {
+                    float winX = 60.f;
+                    float winY = 60.f;
+                    float invX = winX + 20.f;
+                    float invY = winY + 80.f;
+                    float slotSize = 40.f;
+                    float slotPad = 4.f;
+
+                    for (int row = 0; row < 4; row++)
+                    {
+                        for (int col = 0; col < 9; col++)
+                        {
+                            float sx = invX + col * (slotSize + slotPad);
+                            float sy = invY + row * (slotSize + slotPad);
+                            if (isInside(mx, my, sx, sy, slotSize))
+                            {
+                                int slotIdx = (row == 3) ? col : (9 + row * 9 + col);
+                                const Item& sItem = inv.getSlot(slotIdx);
+                                if (!sItem.isEmpty()) { inspectedItemId = sItem.id; return; }
+                            }
+                        }
+                    }
+
+                    float cauldronCenterX = winX + 555.f;
+                    float cauldronCenterY = winY + 235.f;
+                    if (isInside(mx, my, cauldronCenterX - 20.f, cauldronCenterY - 10.f, 40.f) && !alchemy.cauldronBase.isEmpty())
+                    {
+                        inspectedItemId = alchemy.cauldronBase.id;
+                        return;
+                    }
+
+                    float radius = 85.f;
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float angle = i * (3.14159265f / 3.f) - 3.14159265f / 2.f;
+                        float sx = cauldronCenterX + std::cos(angle) * radius - 20.f;
+                        float sy = cauldronCenterY + std::sin(angle) * radius - 20.f;
+                        if (isInside(mx, my, sx, sy, 40.f) && !alchemy.cauldronIngredients[i].isEmpty())
+                        {
+                            inspectedItemId = alchemy.cauldronIngredients[i].id;
+                            return;
+                        }
+                    }
+                    return;
+                }
+
+                // 2. Проверяем клик ПКМ по предмету на столе алхимика
+                if (alchemy.isTableOpen)
+                {
+                    float winX = 60.f;
+                    float winY = 60.f;
+                    float inX = winX + 600.f - 110.f;
+                    float inY = winY + 180.f;
+                    float outX = winX + 600.f + 60.f;
+                    float outY = winY + 180.f;
+
+                    if (isInside(mx, my, inX, inY, 50.f) && !alchemy.mortarInput.isEmpty())
+                    {
+                        inspectedItemId = alchemy.mortarInput.id;
+                        return;
+                    }
+                    if (isInside(mx, my, outX, outY, 50.f) && !alchemy.mortarOutput.isEmpty())
+                    {
+                        inspectedItemId = alchemy.mortarOutput.id;
+                        return;
+                    }
+
+                    float invX = winX + 25.f;
+                    float invY = winY + 90.f;
+                    float slotSize = 40.f;
+                    float slotPad = 4.f;
+                    for (int row = 0; row < 4; row++)
+                    {
+                        for (int col = 0; col < 9; col++)
+                        {
+                            float sx = invX + col * (slotSize + slotPad);
+                            float sy = invY + row * (slotSize + slotPad);
+                            if (isInside(mx, my, sx, sy, slotSize))
+                            {
+                                int slotIdx = (row == 3) ? col : (9 + row * 9 + col);
+                                const Item& sItem = inv.getSlot(slotIdx);
+                                if (!sItem.isEmpty()) { inspectedItemId = sItem.id; return; }
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // 3. Проверяем клик ПКМ по предмету в инвентаре или сундуке
+                if (isInventoryOpen || (nearbyChest && nearbyChest->isOpen))
+                {
+                    if (nearbyChest && nearbyChest->isOpen)
+                    {
+                        int cslot = getChestSlotUnderMouse(mousePixel);
+                        if (cslot != -1 && !nearbyChest->inventory.getSlot(cslot).isEmpty())
+                        {
+                            inspectedItemId = nearbyChest->inventory.getSlot(cslot).id;
+                            return;
+                        }
+                    }
+                    int slot = getSlotUnderMouse(mousePixel);
+                    if (slot != -1 && !inv.getSlot(slot).isEmpty())
+                    {
+                        inspectedItemId = inv.getSlot(slot).id;
+                        return;
+                    }
+                    return;
+                }
+
+                // 4. Проверяем клик ПКМ по ячейке хотбара на главном экране
+                float totalHotbarWidth = UI::HOTBAR_SLOTS * UI::SLOT_SIZE + (UI::HOTBAR_SLOTS + 1) * UI::SLOT_PADDING;
+                float hotbarX = (static_cast<float>(window.getSize().x) - totalHotbarWidth) / 2.f;
+                float hotbarY = static_cast<float>(window.getSize().y) - UI::SLOT_SIZE - 20.f;
+
+                for (int i = 0; i < UI::HOTBAR_SLOTS; i++)
+                {
+                    float sx = hotbarX + UI::SLOT_PADDING + i * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+                    if (isInside(mx, my, sx, hotbarY, UI::SLOT_SIZE))
+                    {
+                        const Item& sItem = inv.getSlot(i);
+                        if (!sItem.isEmpty())
+                        {
+                            inspectedItemId = sItem.id;
+                            return;
+                        }
+                    }
+                }
+
+                // 5. Если клик ПКМ совершен в мире — употребление зелья/ягоды
+                const Item& itm = inv.getSlot(activeSlot);
+                if (!itm.isEmpty())
+                {
+                    sf::Vector2f ppos = player.shape.getPosition();
+                    if (itm.id == "energy_potion")
+                    {
+                        inv.removeItem("energy_potion", 1);
+                        inv.addItem("empty_flask", 1, 99);
+                        player.energy = std::min(player.maxEnergy, player.energy + 50.f);
+                        player.isExhausted = false;
+
+                        FloatingText ft;
+                        ft.text = "+50 Энергии!";
+                        ft.position = ppos;
+                        ft.color = sf::Color(120, 255, 140);
+                        ft.timer = 1.5f;
+                        floatingTexts.push_back(ft);
+                    }
+                    else if (itm.id == "speed_potion")
+                    {
+                        inv.removeItem("speed_potion", 1);
+                        inv.addItem("empty_flask", 1, 99);
+                        player.speedBuffTimer = 30.f;
+
+                        FloatingText ft;
+                        ft.text = "+40% Скорости (30 сек)!";
+                        ft.position = ppos;
+                        ft.color = sf::Color(255, 230, 90);
+                        ft.timer = 1.5f;
+                        floatingTexts.push_back(ft);
+                    }
+                    else if (itm.id == "growth_potion")
+                    {
+                        inv.removeItem("growth_potion", 1);
+                        inv.addItem("empty_flask", 1, 99);
+
+                        // Ускоряем грядки вокруг игрока
+                        int pcx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE);
+                        int pcy = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE);
+                        for (int dy = -2; dy <= 2; dy++)
+                        {
+                            for (int dx = -2; dx <= 2; dx++)
+                            {
+                                int tx = pcx + dx;
+                                int ty = pcy + dy;
+                                if (tx >= 0 && tx < World::WIDTH && ty >= 0 && ty < World::HEIGHT)
+                                {
+                                    if (world.map[ty][tx].plantStage > 0 && world.map[ty][tx].plantStage < 4)
+                                    {
+                                        world.map[ty][tx].plantStage = 4; // Мгновенный урожай
+                                    }
+                                }
+                            }
+                        }
+
+                        FloatingText ft;
+                        ft.text = "Эликсир роста: Посевы созрели!";
+                        ft.position = ppos;
+                        ft.color = sf::Color(230, 160, 255);
+                        ft.timer = 1.8f;
+                        floatingTexts.push_back(ft);
+                    }
+                    else if (itm.id == "berry")
+                    {
+                        inv.removeItem("berry", 1);
+                        player.energy = std::min(player.maxEnergy, player.energy + 15.f);
+                        player.isExhausted = false;
+
+                        FloatingText ft;
+                        ft.text = "+15 Энергии";
+                        ft.position = ppos;
+                        ft.color = sf::Color(255, 180, 200);
+                        ft.timer = 1.2f;
+                        floatingTexts.push_back(ft);
+                    }
+                    else if (itm.id == "chest" || itm.id == "bed" || itm.id == "alchemist_table" ||
+                             itm.id == "cauldron" || itm.id == "carpet" || itm.id == "window")
+                    {
+                        tryPlaceFurniture(itm.id);
                     }
                 }
             }
         }
 
-        // === МЫШЬ: ОТПУСКАНИЕ ===
+        // --- МЫШЬ (ОТПУСКАНИЕ КНОПОК) ---
         if (const auto* mouseReleased = event->getIf<sf::Event::MouseButtonReleased>())
         {
+            if (mouseReleased->button == sf::Mouse::Button::Right)
+            {
+                inspectedItemId.clear();
+            }
             if (mouseReleased->button == sf::Mouse::Button::Left && isDragging)
             {
-                int slot = getSlotUnderMouse(sf::Mouse::getPosition(window));
+                sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+                float mx = static_cast<float>(mousePixel.x);
+                float my = static_cast<float>(mousePixel.y);
+                bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
 
-                if (slot == -2)
+                // 1. Проверяем корзину (удаление предмета в режиме инвентаря)
+                if (!chestOpen && isInside(mx, my, 665.f, 220.f + 3 * (UI::SLOT_SIZE + UI::SLOT_PADDING) + 10.f + UI::SLOT_SIZE + 10.f, UI::SLOT_SIZE))
                 {
-                    // Корзина — уничтожить (draggedItem пропадёт)
+                    FloatingText ft;
+                    ft.text = "Предмет удален";
+                    ft.position = player.shape.getPosition();
+                    ft.color = sf::Color(255, 120, 120);
+                    ft.timer = 1.0f;
+                    floatingTexts.push_back(ft);
+
+                    isDragging = false;
+                    draggedItem = Item{};
+                    draggedFromSlot = -1;
+                    draggedFromChest = false;
+                    return;
                 }
-                else if (slot >= 100 && nearbyChest != nullptr)
-                {
-                    // Положить в сундук
-                    int chestSlot = slot - 100;
-                    Item& target = nearbyChest->inventory.slots[chestSlot];
 
-                    if (target.isEmpty())
+                int targetChestSlot = chestOpen ? getChestSlotUnderMouse(mousePixel) : -1;
+                int targetInvSlot = getSlotUnderMouse(mousePixel);
+
+                if (targetChestSlot != -1 && nearbyChest != nullptr)
+                {
+                    // Дроп в слот сундука
+                    const Item& existing = nearbyChest->inventory.getSlot(targetChestSlot);
+                    if (draggedFromChest)
                     {
-                        nearbyChest->inventory.setSlot(chestSlot, draggedItem);
-                    }
-                    else if (target.id == draggedItem.id)
-                    {
-                        target.count += draggedItem.count;
+                        if (existing.isEmpty())
+                        {
+                            nearbyChest->inventory.setSlot(targetChestSlot, draggedItem);
+                        }
+                        else if (existing.id == draggedItem.id)
+                        {
+                            int newCount = existing.count + draggedItem.count;
+                            nearbyChest->inventory.setSlot(targetChestSlot, Item{ existing.id, newCount });
+                        }
+                        else
+                        {
+                            nearbyChest->inventory.setSlot(draggedFromSlot, existing);
+                            nearbyChest->inventory.setSlot(targetChestSlot, draggedItem);
+                        }
                     }
                     else
                     {
-                        // Swap
-                        Item temp = target;
-                        nearbyChest->inventory.setSlot(chestSlot, draggedItem);
-
-                        if (draggedFromSlot >= 100)
+                        // Из инвентаря в сундук
+                        if (existing.isEmpty())
                         {
-                            nearbyChest->inventory.setSlot(draggedFromSlot - 100, temp);
+                            nearbyChest->inventory.setSlot(targetChestSlot, draggedItem);
                         }
-                        else if (draggedFromSlot >= 0 && draggedFromSlot < 36)
+                        else if (existing.id == draggedItem.id)
                         {
-                            inv.setSlot(draggedFromSlot, temp);
+                            int newCount = existing.count + draggedItem.count;
+                            nearbyChest->inventory.setSlot(targetChestSlot, Item{ existing.id, newCount });
+                        }
+                        else
+                        {
+                            inv.setSlot(draggedFromSlot, existing);
+                            nearbyChest->inventory.setSlot(targetChestSlot, draggedItem);
                         }
                     }
                 }
-                else if (slot >= 0 && slot < 36)
+                else if (targetInvSlot != -1)
                 {
-                    // Положить в инвентарь игрока
-                    Item& target = inv.slots[slot];
-
-                    if (target.isEmpty())
+                    // Дроп в слот инвентаря игрока
+                    const Item& existing = inv.getSlot(targetInvSlot);
+                    if (draggedFromChest && nearbyChest != nullptr)
                     {
-                        inv.setSlot(slot, draggedItem);
-                    }
-                    else if (target.id == draggedItem.id)
-                    {
-                        target.count += draggedItem.count;
+                        // Из сундука в инвентарь
+                        if (existing.isEmpty())
+                        {
+                            inv.setSlot(targetInvSlot, draggedItem);
+                        }
+                        else if (existing.id == draggedItem.id)
+                        {
+                            int newCount = existing.count + draggedItem.count;
+                            inv.setSlot(targetInvSlot, Item{ existing.id, newCount });
+                        }
+                        else
+                        {
+                            nearbyChest->inventory.setSlot(draggedFromSlot, existing);
+                            inv.setSlot(targetInvSlot, draggedItem);
+                        }
                     }
                     else
                     {
-                        // Swap
-                        Item temp = target;
-                        inv.setSlot(slot, draggedItem);
-
-                        if (draggedFromSlot >= 100 && nearbyChest != nullptr)
+                        // Из инвентаря в инвентарь
+                        if (existing.isEmpty())
                         {
-                            nearbyChest->inventory.setSlot(draggedFromSlot - 100, temp);
+                            inv.setSlot(targetInvSlot, draggedItem);
                         }
-                        else if (draggedFromSlot >= 0 && draggedFromSlot < 36)
+                        else if (existing.id == draggedItem.id)
                         {
-                            inv.setSlot(draggedFromSlot, temp);
+                            int newCount = existing.count + draggedItem.count;
+                            inv.setSlot(targetInvSlot, Item{ existing.id, newCount });
+                        }
+                        else
+                        {
+                            inv.setSlot(draggedFromSlot, existing);
+                            inv.setSlot(targetInvSlot, draggedItem);
                         }
                     }
                 }
                 else
                 {
-                    // Отпустили мимо — вернуть обратно
-                    if (draggedFromSlot >= 100 && nearbyChest != nullptr)
+                    // Возвращаем на исходное место
+                    if (draggedFromChest && nearbyChest != nullptr)
                     {
-                        nearbyChest->inventory.setSlot(draggedFromSlot - 100, draggedItem);
+                        nearbyChest->inventory.setSlot(draggedFromSlot, draggedItem);
                     }
-                    else if (draggedFromSlot >= 0 && draggedFromSlot < 36)
+                    else
                     {
                         inv.setSlot(draggedFromSlot, draggedItem);
                     }
                 }
 
-                // Сброс состояния
                 isDragging = false;
                 draggedItem = Item{};
                 draggedFromSlot = -1;
-                draggedFromHotbar = false;
+                draggedFromChest = false;
             }
         }
     }
 }
 
 // ============================================
-// ОБНОВЛЕНИЕ
+// ПОИСК СЛОТА СУНДУКА ПОД МЫШЬЮ
 // ============================================
-void Game::update(float dt)
+int Game::getChestSlotUnderMouse(sf::Vector2i mousePos)
 {
-    // 1. День
-    dayTimer += dt;
-    if (dayTimer >= DAY_LENGTH)
-    {
-        dayTimer = 0.f;
-        currentDay++;
-        world.updateGrowth();
-        droppedItems.clear();
-    }
-
-    // 2. Игрок
-    std::vector<sf::FloatRect> obstacles;
-    for (const auto& chest : chests)
-    {
-        obstacles.push_back(sf::FloatRect(chest.position, { 32.f, 32.f }));
-    }
-
-    // Игрок двигается только если UI закрыт
-    bool uiOpen = isInventoryOpen || (nearbyChest != nullptr && nearbyChest->isOpen);
-    if (!uiOpen)
-    {
-        player.update(dt, 800.f, 600.f, obstacles);
-    }
-
-    // 3. Центр игрока (один раз для всех блоков ниже)
-    sf::Vector2f ppos = player.shape.getPosition();
-    float pcx = ppos.x + Player::SIZE / 2.f;
-    float pcy = ppos.y + Player::SIZE / 2.f;
-
-    // Поиск ближайшего сундука
-    Chest* prevNearby = nearbyChest;
-    nearbyChest = nullptr;
-
-    for (auto& chest : chests)
-    {
-        float cx = chest.position.x + 16.f;
-        float cy = chest.position.y + 16.f;
-        float dx = cx - pcx;
-        float dy = cy - pcy;
-        float distSq = dx * dx + dy * dy;
-
-        if (distSq < 40.f * 40.f)
-        {
-            nearbyChest = &chest;
-            break;
-        }
-    }
-
-    // Если игрок отошёл от сундука — закрыть его
-    if (prevNearby != nullptr && nearbyChest != prevNearby)
-    {
-        prevNearby->isOpen = false;
-    }
-
-    // 5. Подбор предметов на земле
-    for (auto it = droppedItems.begin(); it != droppedItems.end(); )
-    {
-        it->age += dt;
-
-        float dx = it->position.x - pcx;
-        float dy = it->position.y - pcy;
-        float distSq = dx * dx + dy * dy;
-
-        if (distSq < 15.f * 15.f)
-        {
-            const ItemData* data = itemDB.find(it->item.id);
-            int maxStack = data ? data->maxStack : 1;
-
-            bool added = inv.addItem(it->item.id, it->item.count, maxStack);
-            if (added)
-            {
-                it = droppedItems.erase(it);
-                continue;
-            }
-        }
-
-        ++it;
-    }
-}
-
-// ============================================
-// ОТРИСОВКА
-// ============================================
-void Game::render()
-{
-    window.clear(sf::Color::Black);
-
-    // Мир
-    world.draw(window);
-
-    // Маркер тайла перед игроком
-    {
-        sf::Vector2f ppos = player.shape.getPosition();
-        float cx = ppos.x + Player::SIZE / 2.f;
-        float cy = ppos.y + Player::SIZE / 2.f;
-        int tx = static_cast<int>(cx / World::TILE_SIZE) + player.dirX;
-        int ty = static_cast<int>(cy / World::TILE_SIZE) + player.dirY;
-
-        if (tx >= 0 && tx < World::WIDTH && ty >= 0 && ty < World::HEIGHT)
-        {
-            targetMarker.setPosition({ tx * World::TILE_SIZE, ty * World::TILE_SIZE });
-            window.draw(targetMarker);
-        }
-    }
-
-    // Игрок
-    player.draw(window);
-
-    // Сундуки на карте
-    for (const auto& chest : chests)
-    {
-        chestSprite->setPosition(chest.position);
-        window.draw(*chestSprite);
-    }
-
-    // Предметы на земле
-    for (const auto& drop : droppedItems)
-    {
-        // Подпрыгивание
-        float bob = std::sin(drop.age * 3.f) * 3.f;
-        float x = drop.position.x;
-        float y = drop.position.y + bob;
-
-        // Квадратик
-        sf::RectangleShape icon({ 24.f, 24.f });
-        icon.setPosition({ x, y });
-        icon.setFillColor(UI::getItemColor(drop.item.id));
-        window.draw(icon);
-
-        // Буква
-        sf::Text letter(ui.font);
-        letter.setString(UI::getItemLetter(drop.item.id));
-        letter.setCharacterSize(14);
-        letter.setFillColor(sf::Color::White);
-        letter.setPosition({ x + 6.f, y + 2.f });
-        window.draw(letter);
-    }
-
-    // UI
-    float dayProgress = dayTimer / DAY_LENGTH;
-    ui.drawDayBar(window, dayProgress);
-    ui.drawTexts(window, currentDay, inv.countItem("seeds"), inv.countItem("leaves"));
-
     bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
-    if (chestOpen)
-    {
-        ui.drawChest(window, nearbyChest->inventory, nearbyChest->slotCount, true);
-    }
+    if (!chestOpen || nearbyChest == nullptr) return -1;
 
-    if (!isInventoryOpen && !chestOpen)
-    {
-        ui.drawHotbar(window, inv, activeSlot);
-    }
+    float mx = static_cast<float>(mousePos.x);
+    float my = static_cast<float>(mousePos.y);
 
-    // Инвентарь игрока — если открыт инвентарь ИЛИ сундук
-    ui.drawInventory(window, inv, activeSlot, isInventoryOpen || chestOpen, isDragging, chestOpen);
-    // Иконка перетаскивания (под курсором)
-    if (isDragging)
-    {
-        sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
-        ui.drawItemIcon(window,
-            static_cast<float>(mousePixel.x) - UI::SLOT_SIZE / 2.f,
-            static_cast<float>(mousePixel.y) - UI::SLOT_SIZE / 2.f,
-            draggedItem);
-    }
+    const float GRID_X = 235.f;
+    const float GRID_Y = 165.f;
+    int rows = nearbyChest->slotCount / 9;
 
-    window.display();
+    for (int row = 0; row < rows; row++)
+    {
+        for (int col = 0; col < 9; col++)
+        {
+            float x = GRID_X + col * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+            float y = GRID_Y + row * (UI::SLOT_SIZE + UI::SLOT_PADDING);
+            if (isInside(mx, my, x, y, UI::SLOT_SIZE))
+            {
+                return row * 9 + col;
+            }
+        }
+    }
+    return -1;
 }
-
 
 // ============================================
 // ПОИСК СЛОТА ПОД МЫШЬЮ
@@ -441,46 +1269,11 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
     float mx = static_cast<float>(mousePos.x);
     float my = static_cast<float>(mousePos.y);
 
+    const float GRID_X = 235.f;
     bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
-    float invOffsetY = chestOpen ? 170.f : 0.f;
+    float GRID_Y = chestOpen ? 340.f : 220.f;
 
-    // === 1. СУНДУК (индексы 100+) ===
-    if (chestOpen)
-    {
-        const float CHEST_X = 150.f + UI::SLOT_PADDING;
-        const float CHEST_Y = 40.f + UI::SLOT_PADDING;
-        int rows = nearbyChest->slotCount / 9;
-
-        for (int row = 0; row < rows; row++)
-        {
-            for (int col = 0; col < 9; col++)
-            {
-                float x = CHEST_X + col * (UI::SLOT_SIZE + UI::SLOT_PADDING);
-                float y = CHEST_Y + row * (UI::SLOT_SIZE + UI::SLOT_PADDING);
-                if (isInside(mx, my, x, y, UI::SLOT_SIZE))
-                    return 100 + row * 9 + col;
-            }
-        }
-    }
-
-    // === 2. НИЖНИЙ ХОТБАР (если инвентарь и сундук закрыты) ===
-    if (!isInventoryOpen && !chestOpen)
-    {
-        float hotbarY = 600.f - UI::SLOT_SIZE - UI::HOTBAR_MARGIN;
-        for (int i = 0; i < UI::HOTBAR_SLOTS; i++)
-        {
-            float slotX = UI::HOTBAR_MARGIN + UI::SLOT_PADDING + i * (UI::SLOT_SIZE + UI::SLOT_PADDING);
-            if (isInside(mx, my, slotX, hotbarY, UI::SLOT_SIZE))
-                return i;
-        }
-        return -1;
-    }
-
-    // === 3. ИНВЕНТАРЬ ИГРОКА (со сдвигом) ===
-    const float GRID_X = 150.f + UI::SLOT_PADDING;
-    float GRID_Y = 180.f + UI::SLOT_PADDING + invOffsetY;
-
-    // Рюкзак (9-35)
+    // Слоты 9-35 (рюкзак)
     for (int row = 0; row < 3; row++)
     {
         for (int col = 0; col < 9; col++)
@@ -488,27 +1281,1153 @@ int Game::getSlotUnderMouse(sf::Vector2i mousePos)
             float x = GRID_X + col * (UI::SLOT_SIZE + UI::SLOT_PADDING);
             float y = GRID_Y + row * (UI::SLOT_SIZE + UI::SLOT_PADDING);
             if (isInside(mx, my, x, y, UI::SLOT_SIZE))
+            {
                 return 9 + row * 9 + col;
+            }
         }
     }
 
-    // Хотбар в инвентаре (0-8)
-    float hotbarY = GRID_Y + 3 * (UI::SLOT_SIZE + UI::SLOT_PADDING) + 5.f;
+    // Хотбар 0-8
+    float HOTBAR_Y = GRID_Y + 3 * (UI::SLOT_SIZE + UI::SLOT_PADDING) + 10.f;
     for (int col = 0; col < 9; col++)
     {
         float x = GRID_X + col * (UI::SLOT_SIZE + UI::SLOT_PADDING);
-        if (isInside(mx, my, x, hotbarY, UI::SLOT_SIZE))
+        if (isInside(mx, my, x, HOTBAR_Y, UI::SLOT_SIZE))
+        {
             return col;
-    }
-
-    // === 4. КОРЗИНА (-2) — только если сундук не открыт ===
-    if (!chestOpen)
-    {
-        float trashX = 650.f - UI::SLOT_SIZE;
-        float trashY = hotbarY + UI::SLOT_SIZE + 5.f;
-        if (isInside(mx, my, trashX, trashY, UI::SLOT_SIZE))
-            return -2;
+        }
     }
 
     return -1;
+}
+
+// ============================================
+// УВЕДОМЛЕНИЕ О ПРЕДМЕТЕ В РУКЕ
+// ============================================
+void Game::triggerActiveSlotNotification()
+{
+    const Item& itm = inv.getSlot(activeSlot);
+    if (!itm.isEmpty())
+    {
+        const ItemData* d = itemDB.find(itm.id);
+        activeItemNotification = d ? d->name : itm.id;
+        activeNotificationTimer = 1.5f;
+    }
+    else
+    {
+        activeItemNotification = "";
+        activeNotificationTimer = 0.f;
+    }
+}
+
+// ============================================
+// ОБНОВЛЕНИЕ СОСТОЯНИЯ
+// ============================================
+void Game::update(float dt)
+{
+    // 1. Время и суточный цикл
+    timeSystem.update(dt);
+
+    // Комендантский час: если игрок не лег спать до 02:00 — потеря сознания!
+    if (timeSystem.hasPassedOut())
+    {
+        sleepInBed(false);
+    }
+
+    // 2. Алхимия: варка в котле
+    if (alchemy.isBrewing)
+    {
+        alchemy.brewTimer += dt;
+        if (alchemy.brewTimer >= AlchemySystem::BREW_DURATION)
+        {
+            BrewResult res = alchemy.finishBrewing();
+            FloatingText ft;
+            ft.text = res.message;
+            ft.position = { 500.f, 250.f };
+            ft.color = res.success ? sf::Color(140, 255, 140) : sf::Color(255, 120, 120);
+            ft.timer = 2.0f;
+            floatingTexts.push_back(ft);
+        }
+    }
+
+    // 3. Алхимия: измельчение в ступке
+    if (alchemy.isGrinding)
+    {
+        alchemy.grindTimer += dt;
+        if (alchemy.grindTimer >= AlchemySystem::GRIND_DURATION)
+        {
+            alchemy.finishGrinding();
+            FloatingText ft;
+            ft.text = "+1 Порошок получен!";
+            ft.position = { 550.f, 250.f };
+            ft.color = sf::Color(255, 215, 100);
+            ft.timer = 1.3f;
+            floatingTexts.push_back(ft);
+        }
+    }
+
+    // 4. Обновление анимаций мебели (котел 4 кадра; стол алхимика статичный)
+    for (auto& f : furniture)
+    {
+        if (f.id == "cauldron")
+        {
+            f.animTimer += dt;
+            if (f.animTimer >= 0.18f)
+            {
+                f.animTimer -= 0.18f;
+                f.animFrame = (f.animFrame + 1) % 4;
+            }
+        }
+    }
+
+    // Сброс осмотра предмета, если ПКМ не зажата
+    if (!sf::Mouse::isButtonPressed(sf::Mouse::Button::Right))
+    {
+        inspectedItemId.clear();
+    }
+
+    // 5. Перемещение игрока
+    if (!isInventoryOpen && !alchemy.isCauldronOpen && !alchemy.isTableOpen && !(nearbyChest && nearbyChest->isOpen))
+    {
+        std::vector<sf::FloatRect> obstacles;
+        if (house.isInside)
+        {
+            obstacles = house.getInteriorObstacles();
+            for (const auto& c : chests)
+            {
+                if (c.isInside)
+                    obstacles.push_back(sf::FloatRect(c.position, { 32.f, 32.f }));
+            }
+            for (const auto& f : furniture)
+            {
+                if (f.isInside)
+                {
+                    auto obs = f.getObstacle();
+                    if (obs.size.x > 0.f && obs.size.y > 0.f)
+                        obstacles.push_back(obs);
+                }
+            }
+        }
+        else
+        {
+            obstacles = world.getObstacles();
+            auto houseObs = house.getExteriorObstacles();
+            obstacles.insert(obstacles.end(), houseObs.begin(), houseObs.end());
+            for (const auto& c : chests)
+            {
+                if (!c.isInside)
+                    obstacles.push_back(sf::FloatRect(c.position, { 32.f, 32.f }));
+            }
+            for (const auto& f : furniture)
+            {
+                if (!f.isInside)
+                {
+                    auto obs = f.getObstacle();
+                    if (obs.size.x > 0.f && obs.size.y > 0.f)
+                        obstacles.push_back(obs);
+                }
+            }
+        }
+        float winW = static_cast<float>(window.getSize().x);
+        float winH = static_cast<float>(window.getSize().y);
+        player.update(dt, winW, winH, obstacles);
+    }
+
+    // 6. Всплывающие уведомления и тексты
+    if (activeNotificationTimer > 0.f)
+    {
+        activeNotificationTimer -= dt;
+    }
+
+    for (auto it = floatingTexts.begin(); it != floatingTexts.end(); )
+    {
+        it->timer -= dt;
+        it->position.y -= 18.f * dt;
+        if (it->timer <= 0.f)
+        {
+            it = floatingTexts.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+
+    // 7. Подбор предметов с земли на ферме
+    if (!house.isInside)
+    {
+        sf::Vector2f ppos = player.shape.getPosition();
+        for (auto it = droppedItems.begin(); it != droppedItems.end(); )
+        {
+            it->age += dt;
+            float dx = ppos.x - it->position.x;
+            float dy = ppos.y - it->position.y;
+            if (dx * dx + dy * dy < 28.f * 28.f && it->age > 0.4f)
+            {
+                inv.addItem(it->item.id, it->item.count, 99);
+
+                FloatingText ft;
+                const ItemData* d = itemDB.find(it->item.id);
+                ft.text = "+" + std::to_string(it->item.count) + " " + (d ? d->name : it->item.id);
+                ft.position = it->position;
+                ft.color = sf::Color(255, 255, 150);
+                ft.timer = 1.2f;
+                floatingTexts.push_back(ft);
+
+                it = droppedItems.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    // 8. Проверка ближайших интерактивных объектов и подсказок
+    Chest* prevNearby = nearbyChest;
+    nearbyChest = nullptr;
+    nearbyFurnitureIdx = -1;
+    playerPrompt.clear();
+
+    bool anyModalOpen = isInventoryOpen || (prevNearby != nullptr && prevNearby->isOpen) ||
+                        alchemy.isCauldronOpen || alchemy.isTableOpen;
+    if (anyModalOpen)
+    {
+        if (prevNearby != nullptr && prevNearby->isOpen)
+        {
+            nearbyChest = prevNearby;
+        }
+        return;
+    }
+
+    sf::Vector2f ppos = player.shape.getPosition();
+    float pcx = ppos.x + Player::SIZE / 2.f;
+    float pcy = ppos.y + Player::SIZE / 2.f;
+
+    // Клетка и зона строго перед персонажем (по направлению взгляда)
+    int ptx = static_cast<int>(pcx / 32.f);
+    int pty = static_cast<int>(pcy / 32.f);
+    int frontTx = ptx + player.dirX;
+    int frontTy = pty + player.dirY;
+    sf::FloatRect frontTile({ frontTx * 32.f, frontTy * 32.f }, { 32.f, 32.f });
+    sf::FloatRect frontCheckArea({ pcx - 14.f + player.dirX * 22.f, pcy - 14.f + player.dirY * 22.f }, { 28.f, 28.f });
+
+    const Item& activeItem = inv.getSlot(activeSlot);
+    bool hasTool = (activeItem.id == "axe" || activeItem.id == "pickaxe");
+
+    // Сундуки в текущей локации (взаимодействие только если стоим перед сундуком и смотрим на него)
+    for (auto& chest : chests)
+    {
+        if (chest.isInside == house.isInside)
+        {
+            sf::FloatRect cBounds(chest.position, { 32.f, 32.f });
+            float cx = chest.position.x + 16.f;
+            float cy = chest.position.y + 16.f;
+            float dot = (cx - pcx) * player.dirX + (cy - pcy) * player.dirY;
+
+            if (dot > 2.f && (cBounds.findIntersection(frontTile).has_value() || cBounds.findIntersection(frontCheckArea).has_value()))
+            {
+                nearbyChest = &chest;
+                if (hasTool) playerPrompt = "[E / ЛКМ] Забрать сундук";
+                else playerPrompt = "[E] Открыть сундук";
+                break;
+            }
+        }
+    }
+    if (prevNearby != nullptr && nearbyChest != prevNearby)
+    {
+        prevNearby->isOpen = false;
+    }
+
+    // Мебель в текущей локации (взаимодействие только если объект впереди по направлению взгляда)
+    if (nearbyChest == nullptr)
+    {
+        for (size_t i = 0; i < furniture.size(); i++)
+        {
+            auto& f = furniture[i];
+            if (f.isInside == house.isInside)
+            {
+                sf::FloatRect b = f.getBounds();
+                float cx = b.position.x + b.size.x / 2.f;
+                float cy = b.position.y + b.size.y / 2.f;
+                float dot = (cx - pcx) * player.dirX + (cy - pcy) * player.dirY;
+
+                if (dot > 2.f && (b.findIntersection(frontTile).has_value() || b.findIntersection(frontCheckArea).has_value()))
+                {
+                    nearbyFurnitureIdx = static_cast<int>(i);
+                    if (hasTool)
+                    {
+                        playerPrompt = "[E / ЛКМ] Забрать предмет";
+                    }
+                    else if (f.id == "bed")
+                    {
+                        playerPrompt = "[E] Лечь спать";
+                    }
+                    else if (f.id == "cauldron")
+                    {
+                        playerPrompt = "[E] Варить зелья";
+                    }
+                    else if (f.id == "alchemist_table")
+                    {
+                        playerPrompt = "[E] Измельчить ингредиенты";
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    // Двери и установка предметов (вход и выход только если смотрим в сторону двери)
+    if (playerPrompt.empty())
+    {
+        if (house.isInside && house.isNearExitDoor(ppos) && player.dirY > 0)
+        {
+            playerPrompt = "[E] Выйти на ферму";
+        }
+        else if (!house.isInside && house.isNearExteriorDoor(ppos) && player.dirY < 0)
+        {
+            playerPrompt = "[E] Войти в дом";
+        }
+        else if (activeItem.id == "chest" || activeItem.id == "bed" || activeItem.id == "alchemist_table" ||
+                 activeItem.id == "cauldron" || activeItem.id == "carpet")
+        {
+            playerPrompt = "[E] Установить перед собой | [ЛКМ] По сетке";
+        }
+    }
+}
+
+// ============================================
+// ОТРИСОВКА
+// ============================================
+void Game::render()
+{
+    window.clear(sf::Color(20, 20, 25));
+
+    sf::Vector2f ppos = player.shape.getPosition();
+
+    // 1. Отрисовка мира / интерьера дома (2 независимые локации)
+    if (house.isInside)
+    {
+        // ЛОКАЦИЯ 2: ИНТЕРЬЕР ДОМА (ОТДЕЛЬНАЯ СЦЕНА)
+        house.drawInterior(window);
+
+        // Ковры на полу (под ногами игрока и под мебелью)
+        for (const auto& f : furniture)
+        {
+            if (f.isInside && f.id == "carpet")
+            {
+                drawFurniturePiece(window, f);
+            }
+        }
+
+        // Сундуки и мебель сзади игрока (выше по Y)
+        for (const auto& c : chests)
+        {
+            if (c.isInside && c.position.y + 16.f <= ppos.y + 18.f)
+            {
+                chestSprite->setPosition(c.position);
+                window.draw(*chestSprite);
+            }
+        }
+        for (const auto& f : furniture)
+        {
+            if (f.isInside && f.id != "carpet" && f.getSortY() <= ppos.y + 18.f)
+            {
+                drawFurniturePiece(window, f);
+            }
+        }
+
+        // Игрок и предмет в руках
+        player.draw(window);
+        ui.drawHeldItem(window, player, inv.getSlot(activeSlot));
+
+        // Сундуки и мебель спереди игрока (ниже по Y)
+        for (const auto& c : chests)
+        {
+            if (c.isInside && c.position.y + 16.f > ppos.y + 18.f)
+            {
+                chestSprite->setPosition(c.position);
+                window.draw(*chestSprite);
+            }
+        }
+        for (const auto& f : furniture)
+        {
+            if (f.isInside && f.id != "carpet" && f.getSortY() > ppos.y + 18.f)
+            {
+                drawFurniturePiece(window, f);
+            }
+        }
+    }
+    else
+    {
+        // ЛОКАЦИЯ 1: ВНЕШНИЙ МИР / УЛИЦА
+        world.draw(window);
+
+        // 1. Сундуки и мебель сзади игрока (выше по Y)
+        for (const auto& chest : chests)
+        {
+            if (!chest.isInside && chest.position.y + 16.f <= ppos.y + 18.f)
+            {
+                chestSprite->setPosition(chest.position);
+                window.draw(*chestSprite);
+            }
+        }
+        for (const auto& f : furniture)
+        {
+            if (!f.isInside && f.getSortY() <= ppos.y + 18.f)
+            {
+                drawFurniturePiece(window, f);
+            }
+        }
+
+        // Физика и глубина (Y-sorting) дома и игрока
+        if (player.shape.getPosition().y + Player::SIZE < house.exteriorPos.y - 40.f)
+        {
+            player.draw(window);
+            ui.drawHeldItem(window, player, inv.getSlot(activeSlot));
+            house.drawExterior(window);
+        }
+        else
+        {
+            house.drawExterior(window);
+            player.draw(window);
+            ui.drawHeldItem(window, player, inv.getSlot(activeSlot));
+        }
+
+        // 2. Сундуки и мебель спереди игрока (ниже по Y)
+        for (const auto& chest : chests)
+        {
+            if (!chest.isInside && chest.position.y + 16.f > ppos.y + 18.f)
+            {
+                chestSprite->setPosition(chest.position);
+                window.draw(*chestSprite);
+            }
+        }
+        for (const auto& f : furniture)
+        {
+            if (!f.isInside && f.getSortY() > ppos.y + 18.f)
+            {
+                drawFurniturePiece(window, f);
+            }
+        }
+
+        // Деревья
+        world.drawTrees(window, player);
+
+        // Предметы на земле
+        for (const auto& drop : droppedItems)
+        {
+            ui.drawDroppedItem(window, drop);
+        }
+
+        // Маркер целевого тайла
+        int targetX = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirX;
+        int targetY = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirY;
+        if (targetX >= 0 && targetX < World::WIDTH && targetY >= 0 && targetY < World::HEIGHT)
+        {
+            targetMarker.setPosition({ targetX * World::TILE_SIZE, targetY * World::TILE_SIZE });
+            window.draw(targetMarker);
+        }
+    }
+
+    // Сетка и зона установки предметов при удержании мебели в руках
+    bool anyModalOpen = isInventoryOpen || (nearbyChest != nullptr && nearbyChest->isOpen) ||
+                        alchemy.isCauldronOpen || alchemy.isTableOpen;
+    if (!anyModalOpen)
+    {
+        drawPlacementGrid(window);
+    }
+
+    // 2. Ночное освещение и источники света
+    std::vector<std::pair<sf::Vector2f, float>> lights;
+    // Фонарь игрока
+    lights.push_back({ { ppos.x + Player::SIZE / 2.f, ppos.y + Player::SIZE / 2.f }, 95.f });
+
+    if (!house.isInside)
+    {
+        // Свет из окон дома снаружи ночью
+        lights.push_back({ { house.exteriorPos.x + 32.f, house.exteriorPos.y - 70.f }, 85.f });
+    }
+    timeSystem.drawNightOverlay(window, lights);
+
+    // 4. Экран затемнения (сон / переход)
+    timeSystem.drawFade(window);
+
+    // 5. HUD: день, часы (красные в полночь), золото
+    ui.drawHUD(window, timeSystem.currentDay, timeSystem.getTimeString(), timeSystem.isCurfew(), timeSystem.getHour());
+
+    // 6. Шкала выносливости (энергия)
+    ui.drawEnergyBar(window, player.energy, player.maxEnergy);
+
+    // 7. Хотбар
+    bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
+    if (!isInventoryOpen && !chestOpen && !alchemy.isCauldronOpen && !alchemy.isTableOpen)
+    {
+        ui.drawHotbar(window, inv, activeSlot, itemDB);
+    }
+
+    // 8. Окно инвентаря
+    ui.drawInventory(window, inv, activeSlot, isInventoryOpen || chestOpen, isDragging, chestOpen, itemDB, static_cast<int>(currentTab), journalCategory, &alchemy);
+
+    // 9. Интерактивный котел
+    if (alchemy.isCauldronOpen)
+    {
+        ui.drawInteractiveCauldron(window, inv, alchemy, itemDB);
+    }
+
+    // 10. Стол алхимика (Ступка и пестик)
+    if (alchemy.isTableOpen)
+    {
+        ui.drawMortarStation(window, inv, alchemy, itemDB);
+    }
+
+    // 11. Окно сундука
+    if (chestOpen)
+    {
+        ui.drawChest(window, nearbyChest->inventory, nearbyChest->slotCount, true, itemDB);
+    }
+
+    // 12. Перетаскиваемый предмет
+    if (isDragging)
+    {
+        sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+        ui.drawItemIcon(window,
+            static_cast<float>(mousePixel.x) - UI::SLOT_SIZE / 2.f,
+            static_cast<float>(mousePixel.y) - UI::SLOT_SIZE / 2.f,
+            draggedItem);
+    }
+
+    // 13. Тексты и подсказки
+    if (activeNotificationTimer > 0.f && !activeItemNotification.empty())
+    {
+        ui.drawActiveItemNotification(window, activeItemNotification, activeNotificationTimer);
+    }
+    ui.drawFloatingTexts(window, floatingTexts);
+
+    // Подсказка взаимодействия над персонажем (скрывается, если открыто любое модальное окно)
+    if (!playerPrompt.empty() && !anyModalOpen)
+    {
+        sf::Text pTxt(ui.font);
+        pTxt.setString(toUtf8(playerPrompt));
+        pTxt.setCharacterSize(14);
+        sf::FloatRect b = pTxt.getLocalBounds();
+        pTxt.setOrigin({ b.position.x + b.size.x / 2.f, b.position.y + b.size.y });
+
+        float tx = ppos.x + Player::SIZE / 2.f;
+        float ty = ppos.y - 8.f;
+
+        // Тонкая тень для читаемости
+        pTxt.setFillColor(sf::Color(0, 0, 0, 190));
+        pTxt.setPosition({ tx + 1.f, ty + 1.f });
+        window.draw(pTxt);
+
+        // Белый текст без фона
+        pTxt.setFillColor(sf::Color(255, 255, 255));
+        pTxt.setPosition({ tx, ty });
+        window.draw(pTxt);
+    }
+
+    // 14. Тултип предмета под курсором
+    if (!ui.hoveredItemName.empty())
+    {
+        ui.drawTooltip(window, sf::Mouse::getPosition(window), ui.hoveredItemName);
+        ui.hoveredItemName = "";
+    }
+
+    // 15. Подробная карточка предмета при зажатии ПКМ
+    if (!inspectedItemId.empty())
+    {
+        const ItemData* d = itemDB.find(inspectedItemId);
+        if (d)
+        {
+            ui.drawDetailedItemCard(window, sf::Mouse::getPosition(window), *d);
+        }
+    }
+
+    window.display();
+}
+
+// ============================================
+// ОТРИСОВКА ЭЛЕМЕНТА МЕБЕЛИ / ДЕКОРА
+// ============================================
+void Game::drawFurniturePiece(sf::RenderWindow& window, const Furniture& f)
+{
+    if (f.id == "bed")
+    {
+        if (bedSprite)
+        {
+            bedSprite->setPosition(f.position);
+            window.draw(*bedSprite);
+        }
+    }
+    else if (f.id == "carpet")
+    {
+        if (carpetSprite)
+        {
+            carpetSprite->setPosition(f.position);
+            window.draw(*carpetSprite);
+        }
+    }
+    else if (f.id == "alchemist_table")
+    {
+        if (tableSprite)
+        {
+            // Статичный кадр стола алхимика
+            tableSprite->setTextureRect(sf::IntRect({ 0, 0 }, { 48, 64 }));
+            tableSprite->setPosition(f.position);
+            window.draw(*tableSprite);
+        }
+    }
+    else if (f.id == "cauldron")
+    {
+        if (cauldronAnimSprite)
+        {
+            cauldronAnimSprite->setTextureRect(sf::IntRect({ f.animFrame * 36, 0 }, { 36, 40 }));
+            cauldronAnimSprite->setPosition(f.position);
+            window.draw(*cauldronAnimSprite);
+        }
+    }
+}
+
+// ============================================
+// ПРОВЕРКА ВОЗМОЖНОСТИ УСТАНОВКИ МЕБЕЛИ
+// ============================================
+bool Game::isPlacementValid(const std::string& itemId, int tx, int ty, std::string* outReason) const
+{
+    sf::Vector2f ppos = player.shape.getPosition();
+    sf::Vector2f targetPos = { tx * 32.f, ty * 32.f };
+
+    // 1. Ограничение для предметов интерьера: только внутри дома на деревянном полу!
+    if (itemId == "bed" || itemId == "carpet" || itemId == "alchemist_table")
+    {
+        if (!house.isInside)
+        {
+            if (outReason) *outReason = "Этот предмет можно ставить только в доме!";
+            return false;
+        }
+    }
+
+    // Размеры и область препятствия
+    sf::FloatRect bounds;
+    sf::FloatRect obstacle;
+
+    if (itemId == "chest")
+    {
+        bounds = sf::FloatRect(targetPos, { 32.f, 32.f });
+        obstacle = bounds;
+    }
+    else if (itemId == "bed")
+    {
+        bounds = sf::FloatRect(targetPos, { 48.f, 82.5f });
+        obstacle = sf::FloatRect({ targetPos.x, targetPos.y + 7.5f }, { 48.f, 75.f });
+    }
+    else if (itemId == "carpet")
+    {
+        bounds = sf::FloatRect(targetPos, { 64.f, 96.f }); // ровно 2 на 3 тайла
+        obstacle = sf::FloatRect({ 0.f, 0.f }, { 0.f, 0.f }); // ковер проходим
+    }
+    else if (itemId == "alchemist_table")
+    {
+        bounds = sf::FloatRect(targetPos, { 48.f, 64.f });
+        obstacle = sf::FloatRect({ targetPos.x, targetPos.y + 24.f }, { 48.f, 40.f });
+    }
+    else if (itemId == "cauldron")
+    {
+        bounds = sf::FloatRect(targetPos, { 36.f, 40.f });
+        obstacle = sf::FloatRect({ targetPos.x, targetPos.y + 10.f }, { 36.f, 30.f });
+    }
+    else
+    {
+        return false;
+    }
+
+    // 2. Проверка выхода за границы локации
+    if (house.isInside)
+    {
+        if (bounds.position.x < House::ROOM_X ||
+            bounds.position.x + bounds.size.x > House::ROOM_X + House::ROOM_W ||
+            bounds.position.y < House::ROOM_Y ||
+            bounds.position.y + bounds.size.y > House::ROOM_Y + House::ROOM_H)
+        {
+            if (outReason) *outReason = "Нельзя ставить за пределы пола комнаты!";
+            return false;
+        }
+
+        // Нельзя перекрывать дверь выхода
+        sf::FloatRect doorArea({ house.exitDoorPos.x - 28.f, house.exitDoorPos.y - 18.f }, { 56.f, 24.f });
+        if (bounds.findIntersection(doorArea).has_value())
+        {
+            if (outReason) *outReason = "Нельзя перекрывать выход!";
+            return false;
+        }
+    }
+    else
+    {
+        if (tx < 0 || tx >= World::WIDTH || ty < 0 || ty >= World::HEIGHT)
+        {
+            return false;
+        }
+
+        // Вода
+        int checkTilesX = static_cast<int>(std::ceil(bounds.size.x / 32.f));
+        int checkTilesY = static_cast<int>(std::ceil(bounds.size.y / 32.f));
+        for (int dy = 0; dy < checkTilesY; dy++)
+        {
+            for (int dx = 0; dx < checkTilesX; dx++)
+            {
+                int cx = tx + dx;
+                int cy = ty + dy;
+                if (cx >= 0 && cx < World::WIDTH && cy >= 0 && cy < World::HEIGHT)
+                {
+                    if (world.map[cy][cx].type == 2) // Вода
+                    {
+                        if (outReason) *outReason = "Нельзя ставить в воду!";
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Препятствия снаружи
+        if (obstacle.size.x > 0.f && obstacle.size.y > 0.f)
+        {
+            for (const auto& obs : world.getObstacles())
+            {
+                if (obstacle.findIntersection(obs).has_value())
+                {
+                    if (outReason) *outReason = "Здесь уже есть препятствие!";
+                    return false;
+                }
+            }
+            for (const auto& obs : house.getExteriorObstacles())
+            {
+                if (obstacle.findIntersection(obs).has_value())
+                {
+                    if (outReason) *outReason = "Нельзя ставить в стены дома!";
+                    return false;
+                }
+            }
+        }
+    }
+
+    // 3. Твердые объекты не должны ставиться под ноги игрока
+    if (obstacle.size.x > 0.f && obstacle.size.y > 0.f)
+    {
+        sf::FloatRect pHitbox = player.getHitbox(ppos);
+        if (obstacle.findIntersection(pHitbox).has_value())
+        {
+            if (outReason) *outReason = "Нельзя ставить под себя!";
+            return false;
+        }
+    }
+
+    // 4. Проверка пересечения с существующими сундуками и мебелью
+    if (obstacle.size.x > 0.f && obstacle.size.y > 0.f)
+    {
+        for (const auto& c : chests)
+        {
+            if (c.isInside == house.isInside)
+            {
+                sf::FloatRect cRect(c.position, { 32.f, 32.f });
+                if (obstacle.findIntersection(cRect).has_value())
+                {
+                    if (outReason) *outReason = "Это место уже занято!";
+                    return false;
+                }
+            }
+        }
+
+        for (const auto& f : furniture)
+        {
+            if (f.isInside == house.isInside && f.id != "carpet")
+            {
+                auto fObs = f.getObstacle();
+                if (obstacle.findIntersection(fObs).has_value())
+                {
+                    if (outReason) *outReason = "Это место уже занято!";
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+// ============================================
+// УСТАНОВКА МЕБЕЛИ НА КОНКРЕТНЫЙ ТАЙЛ
+// ============================================
+bool Game::tryPlaceFurnitureAt(const std::string& itemId, int tx, int ty)
+{
+    std::string reason;
+    if (!isPlacementValid(itemId, tx, ty, &reason))
+    {
+        if (!reason.empty())
+        {
+            FloatingText ft;
+            ft.text = reason;
+            ft.position = { tx * 32.f, ty * 32.f };
+            ft.color = sf::Color(255, 120, 120);
+            ft.timer = 1.4f;
+            floatingTexts.push_back(ft);
+        }
+        return false;
+    }
+
+    sf::Vector2f targetPos = { tx * 32.f, ty * 32.f };
+
+    if (itemId == "chest")
+    {
+        Chest c;
+        c.slotCount = 18;
+        c.type = "wooden";
+        c.position = targetPos;
+        c.isInside = house.isInside;
+        chests.push_back(c);
+    }
+    else
+    {
+        Furniture f;
+        f.id = itemId;
+        f.isInside = house.isInside;
+        if (itemId == "bed")
+        {
+            // Origin {16, 55} at 1.5x -> bottom center offset { +24.f, +82.5f }
+            f.position = { targetPos.x + 24.f, targetPos.y + 82.5f };
+        }
+        else
+        {
+            f.position = targetPos;
+        }
+        furniture.push_back(f);
+    }
+
+    inv.removeItem(itemId, 1);
+
+    FloatingText ft;
+    const ItemData* d = itemDB.find(itemId);
+    ft.text = "+" + (d ? d->name : itemId) + " установлен!";
+    ft.position = targetPos;
+    ft.color = sf::Color(140, 255, 160);
+    ft.timer = 1.4f;
+    floatingTexts.push_back(ft);
+    return true;
+}
+
+// ============================================
+// УСТАНОВКА МЕБЕЛИ ПЕРЕД СОБОЙ
+// ============================================
+bool Game::tryPlaceFurniture(const std::string& itemId)
+{
+    sf::Vector2f ppos = player.shape.getPosition();
+    int tx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirX;
+    int ty = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirY;
+    return tryPlaceFurnitureAt(itemId, tx, ty);
+}
+
+// ============================================
+// СЕТКА РАЗМЕЩЕНИЯ В РАДИУСЕ 3 ТАЙЛОВ
+// ============================================
+void Game::drawPlacementGrid(sf::RenderWindow& window)
+{
+    const Item& actItm = inv.getSlot(activeSlot);
+    bool isHoldingFurniture = (actItm.id == "chest" || actItm.id == "bed" ||
+                               actItm.id == "alchemist_table" || actItm.id == "cauldron" ||
+                               actItm.id == "carpet");
+    if (!isHoldingFurniture) return;
+
+    sf::Vector2f ppos = player.shape.getPosition();
+    int ptx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / 32.f);
+    int pty = static_cast<int>((ppos.y + Player::SIZE / 2.f) / 32.f);
+
+    // 1. Отрисовка клеток сетки в радиусе 3 тайлов
+    sf::RectangleShape cell({ 32.f, 32.f });
+    cell.setFillColor(sf::Color(255, 255, 255, 12));
+    cell.setOutlineThickness(1.f);
+
+    for (int dy = -3; dy <= 3; dy++)
+    {
+        for (int dx = -3; dx <= 3; dx++)
+        {
+            int tx = ptx + dx;
+            int ty = pty + dy;
+
+            if (house.isInside)
+            {
+                if (tx * 32.f < House::ROOM_X || tx * 32.f >= House::ROOM_X + House::ROOM_W ||
+                    ty * 32.f < House::ROOM_Y || ty * 32.f >= House::ROOM_Y + House::ROOM_H)
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                if (tx < 0 || tx >= World::WIDTH || ty < 0 || ty >= World::HEIGHT)
+                {
+                    continue;
+                }
+            }
+
+            cell.setPosition({ tx * 32.f, ty * 32.f });
+            cell.setOutlineColor(sf::Color(255, 255, 255, 45));
+            window.draw(cell);
+        }
+    }
+
+    // 2. Индикатор под курсором мыши
+    sf::Vector2i mousePix = sf::Mouse::getPosition(window);
+    int htx = mousePix.x / 32;
+    int hty = mousePix.y / 32;
+
+    int wTiles = 1;
+    int hTiles = 1;
+    if (actItm.id == "bed" || actItm.id == "carpet") { wTiles = 2; hTiles = 3; }
+    else if (actItm.id == "alchemist_table" || actItm.id == "cauldron") { wTiles = 2; hTiles = 2; }
+
+    if (std::abs(htx - ptx) <= 3 && std::abs(hty - pty) <= 3)
+    {
+        bool valid = isPlacementValid(actItm.id, htx, hty);
+
+        for (int dy = 0; dy < hTiles; dy++)
+        {
+            for (int dx = 0; dx < wTiles; dx++)
+            {
+                sf::RectangleShape hCell({ 32.f, 32.f });
+                hCell.setPosition({ (htx + dx) * 32.f, (hty + dy) * 32.f });
+                if (valid)
+                {
+                    hCell.setFillColor(sf::Color(40, 220, 60, 75));
+                    hCell.setOutlineColor(sf::Color(80, 255, 100, 210));
+                }
+                else
+                {
+                    hCell.setFillColor(sf::Color(220, 40, 40, 75));
+                    hCell.setOutlineColor(sf::Color(255, 80, 80, 210));
+                }
+                hCell.setOutlineThickness(1.5f);
+                window.draw(hCell);
+            }
+        }
+
+        // Полупрозрачный силуэт предмета
+        if (valid)
+        {
+            if (actItm.id == "chest" && chestSprite)
+            {
+                chestSprite->setPosition({ htx * 32.f, hty * 32.f });
+                chestSprite->setColor(sf::Color(255, 255, 255, 150));
+                window.draw(*chestSprite);
+                chestSprite->setColor(sf::Color::White);
+            }
+            else if (actItm.id == "carpet" && carpetSprite)
+            {
+                carpetSprite->setPosition({ htx * 32.f, hty * 32.f });
+                carpetSprite->setColor(sf::Color(255, 255, 255, 150));
+                window.draw(*carpetSprite);
+                carpetSprite->setColor(sf::Color::White);
+            }
+            else if (actItm.id == "alchemist_table" && tableSprite)
+            {
+                tableSprite->setTextureRect(sf::IntRect({ 0, 0 }, { 48, 64 }));
+                tableSprite->setPosition({ htx * 32.f, hty * 32.f });
+                tableSprite->setColor(sf::Color(255, 255, 255, 150));
+                window.draw(*tableSprite);
+                tableSprite->setColor(sf::Color::White);
+            }
+            else if (actItm.id == "cauldron" && cauldronAnimSprite)
+            {
+                cauldronAnimSprite->setTextureRect(sf::IntRect({ 0, 0 }, { 36, 40 }));
+                cauldronAnimSprite->setPosition({ htx * 32.f, hty * 32.f });
+                cauldronAnimSprite->setColor(sf::Color(255, 255, 255, 150));
+                window.draw(*cauldronAnimSprite);
+                cauldronAnimSprite->setColor(sf::Color::White);
+            }
+            else if (actItm.id == "bed" && bedSprite)
+            {
+                bedSprite->setPosition({ htx * 32.f + 24.f, hty * 32.f + 82.5f });
+                bedSprite->setColor(sf::Color(255, 255, 255, 150));
+                window.draw(*bedSprite);
+                bedSprite->setColor(sf::Color::White);
+            }
+        }
+    }
+
+    // 3. Индикатор перед персонажем (для быстрой установки на [E])
+    int frontTx = ptx + player.dirX;
+    int frontTy = pty + player.dirY;
+    sf::RectangleShape frontCell({ 32.f, 32.f });
+    frontCell.setPosition({ frontTx * 32.f, frontTy * 32.f });
+    frontCell.setFillColor(sf::Color(255, 255, 0, 30));
+    frontCell.setOutlineColor(sf::Color(255, 255, 100, 160));
+    frontCell.setOutlineThickness(1.5f);
+    window.draw(frontCell);
+}
+
+// ============================================
+// ПОДБОР / ДЕМОНТАЖ МЕБЕЛИ
+// ============================================
+bool Game::tryPickupFurniture()
+{
+    sf::Vector2f ppos = player.shape.getPosition();
+    sf::Vector2f checkPos = { ppos.x + 16.f + player.dirX * 28.f, ppos.y + 16.f + player.dirY * 28.f };
+
+    // 1. Проверяем сундуки в текущей локации
+    for (size_t i = 0; i < chests.size(); i++)
+    {
+        auto& c = chests[i];
+        if (c.isInside == house.isInside)
+        {
+            sf::FloatRect bounds(c.position, { 32.f, 32.f });
+            if (bounds.contains(checkPos) || (bounds.position.x - 16.f <= checkPos.x && checkPos.x <= bounds.position.x + bounds.size.x + 16.f &&
+                                              bounds.position.y - 16.f <= checkPos.y && checkPos.y <= bounds.position.y + bounds.size.y + 16.f))
+            {
+                // Сундук можно забрать только если он пустой
+                bool hasItems = false;
+                for (int s = 0; s < c.slotCount; s++)
+                {
+                    if (!c.inventory.getSlot(s).isEmpty())
+                    {
+                        hasItems = true;
+                        break;
+                    }
+                }
+                if (hasItems)
+                {
+                    FloatingText ft;
+                    ft.text = "Сначала освободите сундук!";
+                    ft.position = ppos;
+                    ft.color = sf::Color(255, 120, 120);
+                    ft.timer = 1.3f;
+                    floatingTexts.push_back(ft);
+                    return true;
+                }
+
+                inv.addItem("chest", 1, 99);
+                chests.erase(chests.begin() + i);
+                nearbyChest = nullptr;
+
+                FloatingText ft;
+                ft.text = "Сундук убран в инвентарь!";
+                ft.position = ppos;
+                ft.color = sf::Color(255, 230, 130);
+                ft.timer = 1.3f;
+                floatingTexts.push_back(ft);
+                return true;
+            }
+        }
+    }
+
+    // 2. Проверяем мебель в текущей локации
+    for (size_t i = 0; i < furniture.size(); i++)
+    {
+        auto& f = furniture[i];
+        if (f.isInside == house.isInside)
+        {
+            sf::FloatRect bounds = f.getBounds();
+            sf::FloatRect hitBox({ bounds.position.x - 12.f, bounds.position.y - 12.f },
+                                 { bounds.size.x + 24.f, bounds.size.y + 24.f });
+            if (hitBox.contains(checkPos))
+            {
+                std::string pickedId = f.id;
+                inv.addItem(pickedId, 1, 99);
+                furniture.erase(furniture.begin() + i);
+                nearbyFurnitureIdx = -1;
+
+                FloatingText ft;
+                const ItemData* d = itemDB.find(pickedId);
+                ft.text = (d ? d->name : pickedId) + " убран в инвентарь!";
+                ft.position = ppos;
+                ft.color = sf::Color(255, 230, 130);
+                ft.timer = 1.3f;
+                floatingTexts.push_back(ft);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// ============================================
+// БЫСТРЫЙ ПЕРЕНОС (SHIFT + КЛИК В СУНДУК)
+// ============================================
+void Game::transferToChest(Inventory& srcInv, int srcSlot, Chest& chest, const ItemDatabase& itemDB)
+{
+    Item src = srcInv.getSlot(srcSlot);
+    if (src.isEmpty()) return;
+    int maxStack = 99;
+    const ItemData* d = itemDB.find(src.id);
+    if (d && d->maxStack > 0) maxStack = d->maxStack;
+
+    // 1. Ищем существующие стаки
+    for (int i = 0; i < chest.slotCount; i++)
+    {
+        Item& slot = chest.inventory.slots[i];
+        if (slot.id == src.id && slot.count < maxStack)
+        {
+            int space = maxStack - slot.count;
+            int toMove = std::min(src.count, space);
+            slot.count += toMove;
+            src.count -= toMove;
+            if (src.count <= 0)
+            {
+                srcInv.setSlot(srcSlot, Item{});
+                return;
+            }
+        }
+    }
+    // 2. Ищем пустые слоты
+    for (int i = 0; i < chest.slotCount; i++)
+    {
+        Item& slot = chest.inventory.slots[i];
+        if (slot.isEmpty())
+        {
+            slot = src;
+            srcInv.setSlot(srcSlot, Item{});
+            return;
+        }
+    }
+    srcInv.setSlot(srcSlot, src);
+}
+
+// ============================================
+// БЫСТРЫЙ ПЕРЕНОС (SHIFT + КЛИК ИЗ СУНДУКА В ИНВЕНТАРЬ)
+// ============================================
+void Game::transferToPlayer(Chest& chest, int chestSlot, Inventory& playerInv, const ItemDatabase& itemDB)
+{
+    Item src = chest.inventory.getSlot(chestSlot);
+    if (src.isEmpty()) return;
+    int maxStack = 99;
+    const ItemData* d = itemDB.find(src.id);
+    if (d && d->maxStack > 0) maxStack = d->maxStack;
+
+    // 1. Ищем существующие стаки
+    for (int i = 0; i < Inventory::SIZE; i++)
+    {
+        Item& slot = playerInv.slots[i];
+        if (slot.id == src.id && slot.count < maxStack)
+        {
+            int space = maxStack - slot.count;
+            int toMove = std::min(src.count, space);
+            slot.count += toMove;
+            src.count -= toMove;
+            if (src.count <= 0)
+            {
+                chest.inventory.setSlot(chestSlot, Item{});
+                return;
+            }
+        }
+    }
+    // 2. Ищем пустые слоты
+    for (int i = 0; i < Inventory::SIZE; i++)
+    {
+        Item& slot = playerInv.slots[i];
+        if (slot.isEmpty())
+        {
+            slot = src;
+            chest.inventory.setSlot(chestSlot, Item{});
+            return;
+        }
+    }
+    chest.inventory.setSlot(chestSlot, src);
 }

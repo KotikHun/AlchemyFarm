@@ -7,8 +7,19 @@
 #include "UI.hpp"
 #include "ItemDatabase.hpp"
 #include "DroppedItem.hpp"
-#include <vector>
+#include "FloatingText.hpp"
 #include "Chest.hpp"
+#include "TimeSystem.hpp"
+#include "House.hpp"
+#include "AlchemySystem.hpp"
+#include "Furniture.hpp"
+#include <vector>
+
+enum class InventoryTab {
+    Backpack,
+    Crafting,
+    Journal
+};
 
 // ============================================
 // ИГРА
@@ -16,69 +27,89 @@
 // Хранит окно, все системы и игровой цикл.
 
 struct Game {
-    // Окно
     sf::RenderWindow window;
-
-    // База предметов
     ItemDatabase itemDB;
 
-    // Системы
     World world;
     Player player;
     Inventory inv;
     UI ui;
 
+    // Новые модульные системы
+    TimeSystem timeSystem;
+    House house;
+    AlchemySystem alchemy;
+
     // Активный слот хотбара (0-8)
     int activeSlot = 0;
-    // Открыт ли инвентарь
     bool isInventoryOpen = false;
+    InventoryTab currentTab = InventoryTab::Backpack;
+    int journalCategory = 0; // 0 = Зелья, 1 = Растения, 2 = Ремесло
 
     // Состояние перетаскивания
     bool isDragging = false;
     Item draggedItem;
     int draggedFromSlot = -1;
     bool draggedFromHotbar = false;
+    bool draggedFromChest = false;
 
-    // Предметы на земле
+    // Объекты и мебель на карте (улица и дом)
     std::vector<DroppedItem> droppedItems;
-
-    // Сундуки на карте
     std::vector<Chest> chests;
+    std::vector<Furniture> furniture;
 
-    // Спрайт сундука
     sf::Texture chestTexture;
     std::unique_ptr<sf::Sprite> chestSprite;
 
-    // Ближайший сундук (для открытия по E)
-    Chest* nearbyChest = nullptr;
+    sf::Texture bedTexture;
+    std::unique_ptr<sf::Sprite> bedSprite;
 
-    // Маркер тайла перед игроком
+    sf::Texture tableTexture;
+    std::unique_ptr<sf::Sprite> tableSprite;
+
+    sf::Texture cauldronAnimTexture;
+    std::unique_ptr<sf::Sprite> cauldronAnimSprite;
+
+    sf::Texture carpetTexture;
+    std::unique_ptr<sf::Sprite> carpetSprite;
+
+    sf::Texture windowTexture;
+    std::unique_ptr<sf::Sprite> windowSprite;
+
+    Chest* nearbyChest = nullptr;
+    int nearbyFurnitureIdx = -1;
+
+    // Текстовая подсказка взаимодействия над головой персонажа (без фона)
+    std::string playerPrompt;
     sf::RectangleShape targetMarker;
 
-    // День и время
-    static constexpr float DAY_LENGTH = 60.f;
-    float dayTimer = 0.f;
-    int currentDay = 1;
+    // Подробный осмотр предмета при зажатии ПКМ
+    std::string inspectedItemId;
 
-    // Часы
+    // Всплывающие уведомления о предмете в руке и подборе
+    std::string activeItemNotification;
+    float activeNotificationTimer = 0.f;
+    std::vector<FloatingText> floatingTexts;
+
     sf::Clock clock;
 
-    // Конструктор — создаёт окно, маркер
     Game();
-
-    // Игровой цикл
     void run();
 
 private:
-    // Обработка событий
     void handleEvents();
-
-    // Обновление (день, игрок)
     void update(float dt);
-
-    // Отрисовка (мир, игрок, UI)
     void render();
-
-    // Поиск слота под мышью (возвращает индекс 0-35 или -1)
     int getSlotUnderMouse(sf::Vector2i mousePos);
+    int getChestSlotUnderMouse(sf::Vector2i mousePos);
+    void triggerActiveSlotNotification();
+    void sleepInBed(bool fullRest);
+    bool isPlacementValid(const std::string& itemId, int tx, int ty, std::string* outReason = nullptr) const;
+    bool tryPlaceFurnitureAt(const std::string& itemId, int tx, int ty);
+    bool tryPlaceFurniture(const std::string& itemId);
+    bool tryPickupFurniture();
+    void drawPlacementGrid(sf::RenderWindow& window);
+    void drawFurniturePiece(sf::RenderWindow& window, const Furniture& f);
+    void transferToChest(Inventory& srcInv, int srcSlot, Chest& chest, const ItemDatabase& itemDB);
+    void transferToPlayer(Chest& chest, int chestSlot, Inventory& playerInv, const ItemDatabase& itemDB);
 };

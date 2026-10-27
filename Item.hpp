@@ -7,10 +7,13 @@
 // ============================================
 // Данные о типе предмета (загружаются из items.json).
 struct ItemData {
-    std::string id;        // "hoe", "seeds"
-    std::string name;      // "Мотыга", "Семена"
-    int maxStack = 1;      // 1 или 99
-    bool isTool = false;   // true = инструмент
+    std::string id;           // "hoe", "seeds"
+    std::string name;         // "Мотыга", "Семена"
+    int maxStack = 1;         // 1 или 99
+    bool isTool = false;      // true = инструмент
+    std::string category;     // "Инструмент", "Зелье", "Алхимия", "Мебель"
+    std::string description;  // Подробное описание предмета
+    std::string effects;      // Описание эффектов и применения
 };
 
 // ============================================

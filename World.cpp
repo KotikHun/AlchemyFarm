@@ -1,15 +1,14 @@
 #include "World.hpp"
 #include <iostream>
+#include <cstdlib>
+#include <cmath>
 
 // ============================================
 // КОНСТРУКТОР
 // ============================================
 World::World()
 {
-    // Настраиваем tileShape
-    tileShape.setSize({ TILE_SIZE, TILE_SIZE });
-
-    // Загружаем спрайт травы
+    // 1. Трава
     if (!grassTexture.loadFromFile("assets/sprites/grass.png"))
     {
         std::cerr << "World: cannot load grass.png" << std::endl;
@@ -17,27 +16,172 @@ World::World()
     grassSprite = std::make_unique<sf::Sprite>(grassTexture);
     grassSprite->setScale({ 2.f, 2.f });
 
-    // Загружаем спрайт грядки
-    if (!farmlandTexture.loadFromFile("assets/sprites/farmland.png"))
+    // 2. Грядка
+    if (!farmlandTexture.loadFromFile("assets/sprites/farmland_tile.png"))
     {
-        std::cerr << "World: cannot load farmland.png" << std::endl;
+        if (!farmlandTexture.loadFromFile("assets/sprites/farmland.png"))
+        {
+            std::cerr << "World: cannot load farmland texture" << std::endl;
+        }
     }
     farmlandSprite = std::make_unique<sf::Sprite>(farmlandTexture);
-    farmlandSprite->setScale({ 32.f / 48.f, 32.f / 48.f });  // 48×48 → 32×32
+    farmlandSprite->setScale({ 2.f, 2.f });
 
-    // Заполняем карту травой
+    // 3. Вода (тайлсет с берегами)
+    if (!waterTexture.loadFromFile("assets/sprites/water_tile.png"))
+    {
+        std::cerr << "World: cannot load water_tile.png" << std::endl;
+    }
+    waterSprite = std::make_unique<sf::Sprite>(waterTexture);
+    waterSprite->setScale({ 2.f, 2.f });
+
+    // 4. Декорации (камни, сорняки, пни)
+    if (!decorTexture.loadFromFile("assets/sprites/outdoor_decor.png"))
+    {
+        std::cerr << "World: cannot load outdoor_decor.png" << std::endl;
+    }
+    decorSprite = std::make_unique<sf::Sprite>(decorTexture);
+    decorSprite->setScale({ 2.f, 2.f });
+
+    // 5. Деревья
+    if (!treeTexture.loadFromFile("assets/sprites/tree.png"))
+    {
+        std::cerr << "World: cannot load tree.png" << std::endl;
+    }
+    treeSprite = std::make_unique<sf::Sprite>(treeTexture);
+    treeSprite->setScale({ 2.f, 2.f });
+
+    // 6. Посевы (4 стадии)
+    if (!cropsTexture.loadFromFile("assets/sprites/crops.png"))
+    {
+        std::cerr << "World: cannot load crops.png" << std::endl;
+    }
+    cropsSprite = std::make_unique<sf::Sprite>(cropsTexture);
+    cropsSprite->setScale({ 2.f, 2.f });
+
+    // 7. Инициализация тайлов травы
     for (int y = 0; y < HEIGHT; y++)
     {
         for (int x = 0; x < WIDTH; x++)
         {
-            map[y][x].type = 0;
-
-            // Псевдослучайный хэш от (x, y) — выглядит случайно, но стабильно
-            // (тот же тайл всегда с тем же вариантом)
+            map[y][x].type = 0; // трава
             int hash = (x * 73856093) ^ (y * 19349663);
-            map[y][x].variant = (hash & 0x7FFFFFFF) % 8;  // 0-7
+            map[y][x].variant = (hash & 0x7FFFFFFF) % 8;
         }
     }
+
+    // 8. Водоем (пруд)
+    for (int y = 10; y <= 14; y++)
+    {
+        for (int x = 17; x <= 22; x++)
+        {
+            map[y][x].type = 2; // вода
+        }
+    }
+
+    // 9. Деревья на ферме (строго за пределами радиуса 2 клеток вокруг дома и НИКОГДА на воде!)
+    trees.push_back(Tree{ { 50.f, 480.f }, 4 });   // Слева внизу
+    trees.push_back(Tree{ { 740.f, 70.f }, 4 });   // Справа вверху
+    trees.push_back(Tree{ { 820.f, 340.f }, 4 });  // Справа у края
+    trees.push_back(Tree{ { 450.f, 600.f }, 4 });  // Снизу по центру
+    trees.push_back(Tree{ { 720.f, 580.f }, 4 });  // Справа внизу
+
+    // 10. Зарезервированная зона: Дом + радиус строго 2 клеток (x in 0..12, y in 0..11)
+    // А также водоем: на воде и берегах ничего стоять не может!
+    auto inReservedZone = [&](int x, int y) {
+        if (x <= 12 && y <= 11) return true; // Чистая зона дома и 2 клеток вокруг него
+        if (x >= 16 && x <= 23 && y >= 9 && y <= 15) return true; // Вода и берега: на воде ничего стоять не может!
+        for (const auto& tr : trees)
+        {
+            int tx = static_cast<int>(tr.position.x / TILE_SIZE);
+            int ty = static_cast<int>(tr.position.y / TILE_SIZE);
+            if (x >= tx - 1 && x <= tx + 3 && y >= ty - 1 && y <= ty + 4)
+                return true;
+        }
+        return false;
+    };
+
+    // 11. Объекты расчистки (камни, пни, сорняки)
+    for (int y = 1; y < 24; y++)
+    {
+        for (int x = 1; x < 29; x++)
+        {
+            if (map[y][x].type != 0) continue; // На воде и грядках ничего не спавнится!
+            if (inReservedZone(x, y)) continue;
+
+            int h = ((x * 45211) ^ (y * 982451)) & 0x7FFFFFFF;
+            int r = h % 100;
+
+            if (r < 8)
+            {
+                WorldObject rock;
+                rock.tileX = x;
+                rock.tileY = y;
+                rock.type = ObjectType::Rock;
+                rock.variant = (h / 7) % 2; // Строго 2 варианта серых камней
+                rock.hp = 1;
+                rock.maxHp = 1;
+                objects.push_back(rock);
+            }
+            else if (r < 20)
+            {
+                WorldObject weed;
+                weed.tileX = x;
+                weed.tileY = y;
+                weed.type = ObjectType::Weed;
+                weed.hp = 1;
+                weed.maxHp = 1;
+                weed.variant = (h / 13) % 3;
+                objects.push_back(weed);
+            }
+        }
+    }
+}
+
+// ============================================
+// АВТОТАЙЛИНГ ГРЯДКИ
+// ============================================
+sf::IntRect World::getFarmlandRect(int x, int y) const
+{
+    bool up    = (y > 0 && map[y - 1][x].type == 1);
+    bool down  = (y < HEIGHT - 1 && map[y + 1][x].type == 1);
+    bool left  = (x > 0 && map[y][x - 1].type == 1);
+    bool right = (x < WIDTH - 1 && map[y][x + 1].type == 1);
+
+    int col = 1;
+    if (!left && right) col = 0;
+    else if (left && !right) col = 2;
+    else if (!left && !right) col = 1;
+
+    int row = 1;
+    if (!up && down) row = 0;
+    else if (up && !down) row = 2;
+    else if (!up && !down) row = 1;
+
+    return sf::IntRect({ col * 16, row * 16 }, { 16, 16 });
+}
+
+// ============================================
+// АВТОТАЙЛИНГ БЕРЕГОВ ВОДЫ
+// ============================================
+sf::IntRect World::getWaterRect(int x, int y) const
+{
+    bool up    = (y > 0 && map[y - 1][x].type == 2);
+    bool down  = (y < HEIGHT - 1 && map[y + 1][x].type == 2);
+    bool left  = (x > 0 && map[y][x - 1].type == 2);
+    bool right = (x < WIDTH - 1 && map[y][x + 1].type == 2);
+
+    int col = 1;
+    if (!left && right) col = 0;
+    else if (left && !right) col = 2;
+    else if (!left && !right) col = 1;
+
+    int row = 1;
+    if (!up && down) row = 0;
+    else if (up && !down) row = 2;
+    else if (!up && !down) row = 1;
+
+    return sf::IntRect({ col * 16, row * 16 }, { 16, 16 });
 }
 
 // ============================================
@@ -58,53 +202,132 @@ void World::draw(sf::RenderWindow& window)
             {
                 grassSprite->setPosition({ px, py });
                 window.draw(*grassSprite);
+
+                // Декоративные ростки и цветочки (без камней!)
+                if (t.variant == 1)
+                {
+                    decorSprite->setTextureRect(sf::IntRect({ 48, 16 }, { 16, 16 }));
+                    decorSprite->setPosition({ px, py });
+                    window.draw(*decorSprite);
+                }
+                else if (t.variant == 2)
+                {
+                    decorSprite->setTextureRect(sf::IntRect({ 64, 16 }, { 16, 16 }));
+                    decorSprite->setPosition({ px, py });
+                    window.draw(*decorSprite);
+                }
             }
             else if (t.type == 1)
             {
-                // Грядка — спрайт
+                farmlandSprite->setTextureRect(getFarmlandRect(x, y));
                 farmlandSprite->setPosition({ px, py });
                 window.draw(*farmlandSprite);
 
-                // Политая грядка — тёмный полупрозрачный слой сверху
                 if (t.watered)
                 {
                     sf::RectangleShape waterOverlay({ TILE_SIZE, TILE_SIZE });
                     waterOverlay.setPosition({ px, py });
-                    waterOverlay.setFillColor(sf::Color(30, 30, 60, 80));  // тёмно-синий, полупрозрачный
+                    waterOverlay.setFillColor(sf::Color(30, 30, 60, 90));
                     window.draw(waterOverlay);
                 }
             }
-
-            // Растение (если посажено)
-            if (t.plantStage > 0)
+            else if (t.type == 2)
             {
-                float cx = px + TILE_SIZE / 2.f;
-                float cy = py + TILE_SIZE / 2.f;
+                // Сначала рисуем траву, чтобы берега бесшовно ложились на окружающий газон
+                grassSprite->setPosition({ px, py });
+                window.draw(*grassSprite);
 
-                float radius = 4.f;
-                sf::Color plantColor(60, 130, 60);
+                // Водоем с автоматическими берегами
+                sf::IntRect wRect = getWaterRect(x, y);
+                waterSprite->setTextureRect(wRect);
+                waterSprite->setPosition({ px, py });
+                window.draw(*waterSprite);
 
-                if (t.plantStage == 2)
+                // Рябь только на глубокой центральной воде
+                if (wRect.position.x == 16 && wRect.position.y == 16)
                 {
-                    radius = 7.f;
-                    plantColor = sf::Color(100, 180, 100);
+                    sf::RectangleShape ripple({ TILE_SIZE, TILE_SIZE });
+                    ripple.setPosition({ px, py });
+                    ripple.setFillColor(sf::Color(255, 255, 255, 25));
+                    window.draw(ripple);
                 }
-                else if (t.plantStage == 3)
-                {
-                    radius = 10.f;
-                    plantColor = sf::Color(150, 220, 100);
-                }
+            }
 
-                sf::CircleShape plant(radius);
-                plant.setFillColor(plantColor);
-                plant.setOrigin({ radius, radius });
-                plant.setPosition({ cx, cy });
-                window.draw(plant);
+            // Отрисовка растения (4 стадии роста)
+            if (t.type == 1 && t.plantStage > 0 && cropsSprite)
+            {
+                int col = 0;
+                if (t.plantStage == 1) col = 0;      // 1: Семена
+                else if (t.plantStage == 2) col = 1; // 2: Маленький росток
+                else if (t.plantStage == 3) col = 3; // 3: Куст с бутонами
+                else if (t.plantStage == 4) col = 5; // 4: Спелые ягоды
+
+                cropsSprite->setTextureRect(sf::IntRect({ col * 16, 0 }, { 16, 32 }));
+                // Растение 32x64 (16x32 * 2x), смещаем вверх так чтобы низ попадал на грядку
+                cropsSprite->setPosition({ px, py - 32.f });
+                window.draw(*cropsSprite);
             }
         }
     }
+
+    // Камни, пни и сорняки
+    for (const auto& obj : objects)
+    {
+        sf::IntRect texRect;
+
+        if (obj.type == ObjectType::Rock)
+        {
+            // Строго два варианта серых камней с травинками по бокам (изображения 2 и 3)
+            if (obj.variant == 0)
+                texRect = sf::IntRect({ 16, 32 }, { 16, 16 }); // Одиночный гладкий серый камень
+            else
+                texRect = sf::IntRect({ 32, 32 }, { 16, 16 }); // Слоистый серый камень с травинками
+        }
+        else if (obj.type == ObjectType::Stump)
+        {
+            // Натуральный коричневый древесный спил (никаких желтых камней/руды)
+            texRect = sf::IntRect({ 0, 112 }, { 16, 16 });
+        }
+        else
+        {
+            if (obj.variant == 0) texRect = sf::IntRect({ 0, 16 }, { 16, 16 });
+            else if (obj.variant == 1) texRect = sf::IntRect({ 16, 16 }, { 16, 16 });
+            else texRect = sf::IntRect({ 32, 16 }, { 16, 16 });
+        }
+
+        decorSprite->setTextureRect(texRect);
+        decorSprite->setPosition({ obj.tileX * TILE_SIZE, obj.tileY * TILE_SIZE });
+        window.draw(*decorSprite);
+    }
 }
 
+// ============================================
+// ДЕРЕВЬЯ
+// ============================================
+void World::drawTrees(sf::RenderWindow& window, const Player& player)
+{
+    if (!treeSprite) return;
+
+    sf::Vector2f playerPos = player.shape.getPosition();
+    float pcx = playerPos.x + Player::SIZE / 2.f;
+    float pcy = playerPos.y + Player::SIZE / 2.f;
+
+    for (const auto& tr : trees)
+    {
+        treeSprite->setPosition(tr.position);
+
+        if (tr.isBehindCrown(pcx, pcy))
+        {
+            treeSprite->setColor(sf::Color(255, 255, 255, 125)); // 50% прозрачность
+        }
+        else
+        {
+            treeSprite->setColor(sf::Color(255, 255, 255, 255));
+        }
+
+        window.draw(*treeSprite);
+    }
+}
 
 // ============================================
 // РОСТ ПРИ НОВОМ ДНЕ
@@ -117,86 +340,223 @@ void World::updateGrowth()
         {
             Tile& t = map[y][x];
 
-            // Политые растения растут (до 3 стадии)
-            if (t.watered && t.plantStage > 0 && t.plantStage < 3)
+            // Политые растения растут (до 4 стадии)
+            if (t.watered && t.plantStage > 0 && t.plantStage < 4)
             {
                 t.plantStage++;
             }
-
-            // Сброс полива — утром надо полить снова
             t.watered = false;
         }
     }
 }
 
+// ============================================
+// ПОИСК И УДАЛЕНИЕ ОБЪЕКТОВ
+// ============================================
+WorldObject* World::getObjectAt(int tx, int ty)
+{
+    for (auto& obj : objects)
+    {
+        if (obj.tileX == tx && obj.tileY == ty)
+            return &obj;
+    }
+    return nullptr;
+}
+
+bool World::removeObjectAt(int tx, int ty)
+{
+    for (auto it = objects.begin(); it != objects.end(); ++it)
+    {
+        if (it->tileX == tx && it->tileY == ty)
+        {
+            objects.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+// ============================================
+// ПРЕПЯТСТВИЯ
+// ============================================
+std::vector<sf::FloatRect> World::getObstacles() const
+{
+    std::vector<sf::FloatRect> obs;
+
+    for (int y = 0; y < HEIGHT; y++)
+    {
+        for (int x = 0; x < WIDTH; x++)
+        {
+            if (map[y][x].type == 2)
+            {
+                obs.push_back(sf::FloatRect({ x * TILE_SIZE, y * TILE_SIZE }, { TILE_SIZE, TILE_SIZE }));
+            }
+        }
+    }
+
+    for (const auto& obj : objects)
+    {
+        if (obj.isSolid())
+        {
+            obs.push_back(obj.getBounds(TILE_SIZE));
+        }
+    }
+
+    for (const auto& tr : trees)
+    {
+        obs.push_back(tr.getTrunkBounds());
+    }
+
+    return obs;
+}
 
 // ============================================
 // ВЗАИМОДЕЙСТВИЕ
 // ============================================
-void World::interact(const Player& player, const std::string& itemId, Inventory& inv)
+void World::interact(const Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems)
 {
-    // 1. Центр игрока
     sf::Vector2f pos = player.shape.getPosition();
     float centerX = pos.x + Player::SIZE / 2.f;
     float centerY = pos.y + Player::SIZE / 2.f;
 
-    // 2. Тайл под игроком
     int tileX = static_cast<int>(centerX / TILE_SIZE);
     int tileY = static_cast<int>(centerY / TILE_SIZE);
 
-    // 3. Тайл перед игроком
     int targetX = tileX + player.dirX;
     int targetY = tileY + player.dirY;
 
-    // 4. Проверка границ карты
-    if (targetX < 0 || targetX >= WIDTH ||
-        targetY < 0 || targetY >= HEIGHT)
+    if (targetX < 0 || targetX >= WIDTH || targetY < 0 || targetY >= HEIGHT)
     {
         return;
     }
 
-    // 5. Ссылка на тайл
+    float targetCenterX = targetX * TILE_SIZE + TILE_SIZE / 2.f;
+    float targetCenterY = targetY * TILE_SIZE + TILE_SIZE / 2.f;
+
+    // 1. Рубка дерева
+    for (auto it = trees.begin(); it != trees.end(); ++it)
+    {
+        sf::FloatRect trunk = it->getTrunkBounds();
+        float tcx = trunk.position.x + trunk.size.x / 2.f;
+        float tcy = trunk.position.y + trunk.size.y / 2.f;
+
+        float dx = targetCenterX - tcx;
+        float dy = targetCenterY - tcy;
+        if (dx * dx + dy * dy < 48.f * 48.f)
+        {
+            if (itemId == "axe")
+            {
+                it->hp--;
+                if (it->hp <= 0)
+                {
+                    sf::Vector2f dropPos = { trunk.position.x, trunk.position.y };
+                    droppedItems.push_back(DroppedItem{ Item{ "wood", 4 }, dropPos, 0.f });
+                    droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, { dropPos.x + 12.f, dropPos.y - 8.f }, 0.f });
+                    trees.erase(it);
+                }
+            }
+            return;
+        }
+    }
+
+    // 2. Камни, пни и сорняки
+    WorldObject* obj = getObjectAt(targetX, targetY);
+    if (obj != nullptr)
+    {
+        sf::Vector2f dropPos = { targetX * TILE_SIZE + 4.f, targetY * TILE_SIZE + 4.f };
+
+        if (obj->type == ObjectType::Rock)
+        {
+            if (itemId == "pickaxe")
+            {
+                obj->hp--;
+                if (obj->hp <= 0)
+                {
+                    int dropCount = (obj->variant == 3) ? 2 : 1;
+                    removeObjectAt(targetX, targetY);
+                    droppedItems.push_back(DroppedItem{ Item{ "stone", dropCount }, dropPos, 0.f });
+                }
+            }
+            return;
+        }
+        else if (obj->type == ObjectType::Stump)
+        {
+            if (itemId == "axe")
+            {
+                obj->hp--;
+                if (obj->hp <= 0)
+                {
+                    removeObjectAt(targetX, targetY);
+                    droppedItems.push_back(DroppedItem{ Item{ "wood", 2 }, dropPos, 0.f });
+                }
+            }
+            return;
+        }
+        else if (obj->type == ObjectType::Weed)
+        {
+            if (itemId == "hoe" || itemId == "axe" || itemId.empty())
+            {
+                obj->hp--;
+                if (obj->hp <= 0)
+                {
+                    removeObjectAt(targetX, targetY);
+                    droppedItems.push_back(DroppedItem{ Item{ "fiber", 1 }, dropPos, 0.f });
+                    if (std::rand() % 3 == 0)
+                    {
+                        droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, dropPos, 0.f });
+                    }
+                }
+            }
+            return;
+        }
+    }
+
+    // 3. Действие с грядкой / землей
     Tile& t = map[targetY][targetX];
 
-    // 6. Действие зависит от предмета в руке
+    if (t.type == 2)
+    {
+        return; // вода
+    }
+
     if (itemId == "hoe")
     {
-        // Мотыга
         if (t.type == 0)
         {
-            t.type = 1;
+            t.type = 1; // вскопка
         }
         else if (t.type == 1 && t.plantStage > 0)
         {
-            if (t.plantStage == 3)
-                inv.addItem("leaves", 1, 99);
+            if (t.plantStage == 4)
+            {
+                // Сбор урожая
+                droppedItems.push_back(DroppedItem{ Item{ "berry", 2 }, { targetX * TILE_SIZE + 4.f, targetY * TILE_SIZE + 4.f }, 0.f });
+            }
             t.plantStage = 0;
             t.watered = false;
         }
     }
     else if (itemId == "seeds")
     {
-        // Семечко
         if (t.type == 1 && t.plantStage == 0 && inv.countItem("seeds") > 0)
         {
-            t.plantStage = 1;
+            t.plantStage = 1; // Посадка (Стадия 1: семена)
             inv.removeItem("seeds", 1);
         }
     }
     else if (itemId == "watering_can")
     {
-        // Лейка
         if (t.type == 1 && !t.watered)
         {
-            t.watered = true;
+            t.watered = true; // Полив
         }
     }
     else if (itemId.empty())
     {
-        // Рука — собрать
-        if (t.type == 1 && t.plantStage == 3)
+        // Рука: сбор спелого урожая
+        if (t.type == 1 && t.plantStage == 4)
         {
-            inv.addItem("leaves", 1, 99);
+            droppedItems.push_back(DroppedItem{ Item{ "berry", 2 }, { targetX * TILE_SIZE + 4.f, targetY * TILE_SIZE + 4.f }, 0.f });
             t.plantStage = 0;
             t.watered = false;
         }

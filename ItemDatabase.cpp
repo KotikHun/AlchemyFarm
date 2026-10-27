@@ -45,6 +45,9 @@ bool ItemDatabase::loadFromFile(const std::string& path)
         data.name = itemJson.value("name", "Unknown");
         data.maxStack = itemJson.value("maxStack", 1);
         data.isTool = itemJson.value("isTool", false);
+        data.category = itemJson.value("category", "Предмет");
+        data.description = itemJson.value("description", "");
+        data.effects = itemJson.value("effects", "");
 
         if (data.id.empty())
         {
@@ -62,12 +65,14 @@ bool ItemDatabase::loadFromFile(const std::string& path)
 }
 
 // ============================================
-// ПОИСК ПО ID
+// ПОИСК ПРЕДМЕТА ПО ID
 // ============================================
 const ItemData* ItemDatabase::find(const std::string& id) const
 {
     auto it = idToIndex.find(id);
     if (it == idToIndex.end())
+    {
         return nullptr;
+    }
     return &items[it->second];
 }

@@ -9,4 +9,5 @@ struct Chest {
     sf::Vector2f position;
     bool isOpen = false;
     std::string type = "wooden";
+    bool isInside = false;
 };

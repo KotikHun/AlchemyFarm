@@ -2,20 +2,21 @@
 
 #include <SFML/Graphics.hpp>
 #include <array>
+#include <vector>
+#include <memory>
 #include "Tile.hpp"
 #include "Player.hpp"
 #include "Inventory.hpp"
-#include <memory>
+#include "WorldObject.hpp"
+#include "Tree.hpp"
+#include "DroppedItem.hpp"
 
 // ============================================
 // ИГРОВОЙ МИР (КАРТА)
 // ============================================
-// Хранит карту из тайлов и умеет её рисовать.
-// Позже сюда добавятся рост растений
-// и взаимодействие с тайлами.
+// Хранит тайлы, водоем, объекты расчистки, деревья и посевы.
 
 struct World {
-
     // Спрайт травы
     sf::Texture grassTexture;
     std::unique_ptr<sf::Sprite> grassSprite;
@@ -24,42 +25,44 @@ struct World {
     sf::Texture farmlandTexture;
     std::unique_ptr<sf::Sprite> farmlandSprite;
 
-    // Размер карты (в тайлах)
+    // Спрайт воды
+    sf::Texture waterTexture;
+    std::unique_ptr<sf::Sprite> waterSprite;
+
+    // Спрайты декораций (камни, сорняки, пни)
+    sf::Texture decorTexture;
+    std::unique_ptr<sf::Sprite> decorSprite;
+
+    // Спрайт дерева (Oak Tree 128x160)
+    sf::Texture treeTexture;
+    std::unique_ptr<sf::Sprite> treeSprite;
+
+    // Спрайт посевов (Spring Crops, 4 стадии роста)
+    sf::Texture cropsTexture;
+    std::unique_ptr<sf::Sprite> cropsSprite;
+
+    // Размер карты
     static constexpr int WIDTH = 30;
     static constexpr int HEIGHT = 25;
     static constexpr float TILE_SIZE = 32.f;
 
-    // Карта — двумерный массив тайлов
     std::array<std::array<Tile, WIDTH>, HEIGHT> map;
+    std::vector<WorldObject> objects;
+    std::vector<Tree> trees;
 
-    // Служебный прямоугольник для отрисовки тайлов
-    sf::RectangleShape tileShape;
-
-    // Цвета тайлов
-    static constexpr int GRASS_R = 60;
-    static constexpr int GRASS_G = 130;
-    static constexpr int GRASS_B = 60;
-
-    static constexpr int SOIL_R = 139;
-    static constexpr int SOIL_G = 90;
-    static constexpr int SOIL_B = 43;
-
-    static constexpr int WATERED_SOIL_R = 100;
-    static constexpr int WATERED_SOIL_G = 65;
-    static constexpr int WATERED_SOIL_B = 30;
-
-    // Конструктор — создаёт карту и заполняет травой
     World();
 
-    // Отрисовка карты
     void draw(sf::RenderWindow& window);
-
-    // Рост растений при новом дне
+    void drawTrees(sf::RenderWindow& window, const Player& player);
     void updateGrowth();
 
-    // Взаимодействие с тайлом перед игроком
-    // player — откуда смотрит игрок
-    // tool — чем действуем
-    // inv — меняем счётчики (семечки, листья)
-    void interact(const Player& player, const std::string& itemId, Inventory& inv);
+    WorldObject* getObjectAt(int tx, int ty);
+    bool removeObjectAt(int tx, int ty);
+
+    std::vector<sf::FloatRect> getObstacles() const;
+
+    void interact(const Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems);
+
+    sf::IntRect getFarmlandRect(int x, int y) const;
+    sf::IntRect getWaterRect(int x, int y) const;
 };

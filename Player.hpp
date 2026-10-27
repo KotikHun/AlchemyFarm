@@ -2,33 +2,73 @@
 
 #include <SFML/Graphics.hpp>
 #include <vector>
+#include <memory>
+
+// ============================================
+// ДЕЙСТВИЯ ИГРОКА
+// ============================================
+enum class PlayerAction {
+    None,
+    Water,
+    Hoe,
+    Axe,
+    Pickaxe
+};
 
 // ============================================
 // ИГРОК
 // ============================================
-// Хранит состояние игрока и умеет обновляться
-// (двигаться) и рисоваться.
+// Анимированный персонаж со спрайтами на 4 направления (покой / ходьба / действия)
 
 struct Player {
-    // Размер и скорость
-    static constexpr float SIZE = 24.f;
-    static constexpr float SPEED = 150.f;
+    static constexpr float SIZE = 32.f;
+    static constexpr float SPEED = 160.f;
+    static constexpr float ACTION_DURATION = 0.28f;
 
-    // Внешний вид
+    // Коллайдер
     sf::RectangleShape shape;
 
-    // Направление взгляда (для взаимодействия)
-    int dirX = 0;
-    int dirY = -1;  // по умолчанию вверх
+    // Хитбокс у ног персонажа (для плавного перемещения между препятствиями)
+    sf::FloatRect getHitbox(const sf::Vector2f& pos) const {
+        return sf::FloatRect({ pos.x + 7.f, pos.y + 18.f }, { 18.f, 12.f });
+    }
 
-    // Конструктор — создаёт shape и задаёт параметры
+    // Графика
+    sf::Texture texture;
+    sf::Texture actionsTexture;
+    std::unique_ptr<sf::Sprite> sprite;
+    std::unique_ptr<sf::Sprite> actionSprite;
+
+    // Направление взгляда
+    int dirX = 0;
+    int dirY = 1;  // по умолчанию вниз
+
+    // Состояние анимации перемещения
+    bool isMoving = false;
+    float animTimer = 0.f;
+
+    // Состояние действий инструментами
+    bool isActing = false;
+    float actionTimer = 0.f;
+    PlayerAction currentAction = PlayerAction::None;
+
+    // Энергия (стамина)
+    float energy = 100.f;
+    float maxEnergy = 100.f;
+    bool isExhausted = false;
+
+    // Эффекты зелий
+    float speedBuffTimer = 0.f;
+
     Player();
 
-    // Обновление (движение) за кадр
-    // windowWidth, windowHeight — для ограничения по краям
+    void playAction(PlayerAction action);
+    void useEnergy(float amount);
+    void restoreEnergy(float amount);
+
     void update(float dt, float windowWidth, float windowHeight,
         const std::vector<sf::FloatRect>& obstacles);
 
-    // Отрисовка
     void draw(sf::RenderWindow& window);
 };
+

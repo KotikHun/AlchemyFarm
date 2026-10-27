@@ -163,6 +163,9 @@
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="UI.cpp" />
     <ClCompile Include="World.cpp" />
+    <ClCompile Include="TimeSystem.cpp" />
+    <ClCompile Include="House.cpp" />
+    <ClCompile Include="AlchemySystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inventory.hpp" />
@@ -172,6 +175,12 @@
     <ClInclude Include="Tile.hpp" />
     <ClInclude Include="UI.hpp" />
     <ClInclude Include="World.hpp" />
+    <ClInclude Include="WorldObject.hpp" />
+    <ClInclude Include="Tree.hpp" />
+    <ClInclude Include="FloatingText.hpp" />
+    <ClInclude Include="TimeSystem.hpp" />
+    <ClInclude Include="House.hpp" />
+    <ClInclude Include="AlchemySystem.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
