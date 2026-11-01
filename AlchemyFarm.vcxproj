@@ -173,6 +173,10 @@
     <ClCompile Include="WeatherSystem.cpp" />
     <ClCompile Include="QuestManager.cpp" />
     <ClCompile Include="PlacementSystem.cpp" />
+    <ClCompile Include="MenuUI.cpp" />
+    <ClCompile Include="AlchemyUI.cpp" />
+    <ClCompile Include="OrdersBoardUI.cpp" />
+    <ClCompile Include="SleepReportUI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inventory.hpp" />
@@ -193,6 +197,11 @@
     <ClInclude Include="WeatherSystem.hpp" />
     <ClInclude Include="QuestManager.hpp" />
     <ClInclude Include="PlacementSystem.hpp" />
+    <ClInclude Include="MenuUI.hpp" />
+    <ClInclude Include="AlchemyUI.hpp" />
+    <ClInclude Include="OrdersBoardUI.hpp" />
+    <ClInclude Include="SleepReportUI.hpp" />
+    <ClInclude Include="UIUtils.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -17,60 +17,11 @@ struct SaveSlotInfo;
 // ============================================
 // СОСТОЯНИЯ МЕНЮ И НАСТРОЙКИ
 // ============================================
-enum class MenuModal {
-    None,
-    Saves,
-    Settings,
-    About
-};
-
-struct GameSettings {
-    int soundVolume = 80;
-    int musicVolume = 70;
-    bool fullscreen = false;
-};
-
-struct MenuParticle {
-    sf::Vector2f pos;
-    sf::Vector2f vel;
-    float alpha = 200.f;
-    float size = 3.f;
-    float life = 1.f;
-    float maxLife = 4.f;
-    sf::Color color;
-};
-
-// ============================================
-// ОТЧЁТ О ПРОДАЖАХ И СНЕ
-// ============================================
-struct SoldItemRecord {
-    std::string id;
-    std::string name;
-    int count = 0;
-    int priceEach = 0;
-    int totalPrice = 0;
-};
-
-struct SleepReport {
-    bool fullRest = true;
-    int dayNumber = 1;
-    std::vector<SoldItemRecord> soldItems;
-    int totalEarned = 0;
-    int previousGold = 0;
-    int currentGold = 0;
-};
-
-// ============================================
-// ============================================
-#include "QuestManager.hpp"
-
-inline sf::String toUtf8(const std::string& str) {
-    return sf::String::fromUtf8(str.begin(), str.end());
-}
-
-// ============================================
-// ИНТЕРФЕЙС (UI)
-// ============================================
+#include "MenuUI.hpp"
+#include "SleepReportUI.hpp"
+#include "AlchemyUI.hpp"
+#include "OrdersBoardUI.hpp"
+#include "UIUtils.hpp"
 struct UI {
     // Шрифт
     sf::Font font;
@@ -113,7 +64,7 @@ struct UI {
     static sf::Color getItemColor(const std::string& id);
     static std::string getItemLetter(const std::string& id);
 
-    void drawItemIcon(sf::RenderWindow& window, float x, float y, const Item& item);
+    void drawItemIcon(sf::RenderWindow& window, float x, float y, const Item& item) const;
     void drawDroppedItem(sf::RenderWindow& window, const DroppedItem& drop);
 
     void drawHotbar(sf::RenderWindow& window, const Inventory& inv, int activeSlot, const ItemDatabase& itemDB);

@@ -2,16 +2,6 @@
 #include <iostream>
 #include <cmath>
 
-static bool isInside(float mx, float my, float x, float y, float size)
-{
-    return mx >= x && mx < x + size && my >= y && my < y + size;
-}
-
-static bool isInsideRect(float mx, float my, float x, float y, float w, float h)
-{
-    return mx >= x && mx < x + w && my >= y && my < y + h;
-}
-
 // ============================================
 // КОНСТРУКТОР
 // ============================================
