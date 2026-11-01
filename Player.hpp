@@ -57,6 +57,9 @@ struct Player {
     float maxEnergy = 100.f;
     bool isExhausted = false;
 
+    // Кошелек игрока (золото)
+    int gold = 100;
+
     // Эффекты зелий
     float speedBuffTimer = 0.f;
 

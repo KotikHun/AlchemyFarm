@@ -24,7 +24,8 @@ struct Furniture {
             return sf::FloatRect({ position.x, position.y + 24.f }, { 48.f, 40.f });
         }
         if (id == "cauldron") {
-            return sf::FloatRect({ position.x, position.y + 10.f }, { 36.f, 30.f });
+            // Ровно 1 тайл 32x32
+            return sf::FloatRect(position, { 32.f, 32.f });
         }
         return sf::FloatRect(position, { 32.f, 32.f });
     }
@@ -40,7 +41,8 @@ struct Furniture {
             return sf::FloatRect(position, { 48.f, 64.f });
         }
         if (id == "cauldron") {
-            return sf::FloatRect(position, { 36.f, 40.f });
+            // Ровно 1 тайл 32x32
+            return sf::FloatRect(position, { 32.f, 32.f });
         }
         return sf::FloatRect(position, { 32.f, 32.f });
     }
@@ -48,7 +50,7 @@ struct Furniture {
     float getSortY() const {
         if (id == "bed") return position.y;
         if (id == "alchemist_table") return position.y + 60.f;
-        if (id == "cauldron") return position.y + 38.f;
+        if (id == "cauldron") return position.y + 32.f;
         return position.y + 32.f;
     }
 };

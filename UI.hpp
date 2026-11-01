@@ -12,6 +12,75 @@
 
 struct Player;
 class AlchemySystem;
+struct SaveSlotInfo;
+
+// ============================================
+// СОСТОЯНИЯ МЕНЮ И НАСТРОЙКИ
+// ============================================
+enum class MenuModal {
+    None,
+    Saves,
+    Settings,
+    About
+};
+
+struct GameSettings {
+    int soundVolume = 80;
+    int musicVolume = 70;
+    bool fullscreen = false;
+};
+
+struct MenuParticle {
+    sf::Vector2f pos;
+    sf::Vector2f vel;
+    float alpha = 200.f;
+    float size = 3.f;
+    float life = 1.f;
+    float maxLife = 4.f;
+    sf::Color color;
+};
+
+// ============================================
+// ОТЧЁТ О ПРОДАЖАХ И СНЕ
+// ============================================
+struct SoldItemRecord {
+    std::string id;
+    std::string name;
+    int count = 0;
+    int priceEach = 0;
+    int totalPrice = 0;
+};
+
+struct SleepReport {
+    bool fullRest = true;
+    int dayNumber = 1;
+    std::vector<SoldItemRecord> soldItems;
+    int totalEarned = 0;
+    int previousGold = 0;
+    int currentGold = 0;
+};
+
+// ============================================
+// ЗАКАЗЫ И ЛАВКА (КВЕСТЫ ЖИТЕЛЕЙ)
+// ============================================
+struct QuestRecord {
+    std::string id;
+    std::string clientName;
+    std::string title;
+    std::string description;
+    std::string targetItemId;
+    int targetCount = 1;
+    int rewardGold = 60;
+    std::string hint;
+    bool isCompleted = false;
+};
+
+struct ShopCatalogItem {
+    std::string itemId;
+    std::string name;
+    int price = 10;
+    std::string desc;
+};
 
 // ============================================
 // ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ UTF-8 (РУССКИЙ ТЕКСТ)
@@ -69,7 +138,7 @@ struct UI {
     void drawDroppedItem(sf::RenderWindow& window, const DroppedItem& drop);
 
     void drawHotbar(sf::RenderWindow& window, const Inventory& inv, int activeSlot, const ItemDatabase& itemDB);
-    void drawHUD(sf::RenderWindow& window, int currentDay, const std::string& timeStr, bool isCurfew, int hour);
+    void drawHUD(sf::RenderWindow& window, int currentDay, const std::string& timeStr, bool isCurfew, int hour, int gold = 0);
     void drawTexts(sf::RenderWindow& window, int currentDay, int seeds, int leaves);
     void drawDayBar(sf::RenderWindow& window, float dayProgress);
 
@@ -101,7 +170,15 @@ struct UI {
         const Inventory& chestInv,
         int slotCount,
         bool isOpen,
-        const ItemDatabase& itemDB);
+        const ItemDatabase& itemDB,
+        const std::string& customTitle = "");
+
+    // Экран ночного отчёта о доходах и сне
+    static sf::FloatRect getSleepReportNextButtonRect();
+    void drawSleepReport(sf::RenderWindow& window,
+        const SleepReport& report,
+        float animTime,
+        bool isNextHovered);
 
     // Уведомление над хотбаром при переключении предмета в руке
     void drawActiveItemNotification(sf::RenderWindow& window, const std::string& itemName, float timer);
@@ -126,4 +203,74 @@ struct UI {
 
     // Меню алхимии и крафта
     void drawAlchemy(sf::RenderWindow& window, const Inventory& inv, const ItemDatabase& itemDB);
+
+    // Главное меню, экран загрузки и меню паузы
+    static sf::FloatRect getMainMenuButtonRect(int index);
+    static sf::FloatRect getPauseMenuButtonRect(int index);
+
+    // Модальные окна (Об игре, Настройки, Сохранения)
+    static sf::FloatRect getAboutBackButtonRect();
+
+    static sf::FloatRect getSettingsBackButtonRect();
+    static sf::FloatRect getSettingsSoundMinusRect();
+    static sf::FloatRect getSettingsSoundPlusRect();
+    static sf::FloatRect getSettingsMusicMinusRect();
+    static sf::FloatRect getSettingsMusicPlusRect();
+
+    static sf::FloatRect getSavesBackButtonRect();
+    static sf::FloatRect getSavesActionBtnRect(int slotIndex);
+    static sf::FloatRect getSavesDeleteBtnRect(int slotIndex);
+    static sf::FloatRect getSavesEmptyBtnRect(int slotIndex);
+
+    void drawMainMenu(sf::RenderWindow& window,
+        float animTime,
+        int hoveredButton,
+        MenuModal modal,
+        const GameSettings& settings,
+        const std::vector<SaveSlotInfo>& saveSlots,
+        bool isSaveMode,
+        int pendingDeleteSlot,
+        const std::vector<MenuParticle>& particles);
+
+    void drawLoadingScreen(sf::RenderWindow& window,
+        float progress,
+        const std::string& stageText,
+        const std::string& tipText,
+        float animTime);
+
+    void drawPauseMenu(sf::RenderWindow& window,
+        int hoveredButton,
+        MenuModal modal,
+        const GameSettings& settings,
+        const std::vector<SaveSlotInfo>& saveSlots,
+        bool isSaveMode,
+        int pendingDeleteSlot);
+
+    void drawSettingsModal(sf::RenderWindow& window,
+        const GameSettings& settings,
+        int hoveredButton);
+
+    void drawSavesModal(sf::RenderWindow& window,
+        const std::vector<SaveSlotInfo>& saveSlots,
+        bool isSaveMode,
+        int pendingDeleteSlot);
+
+    void drawAboutModal(sf::RenderWindow& window,
+        int hoveredButton);
+
+    // Доска объявлений (Заказы жителей и лавка)
+    static sf::FloatRect getOrdersBoardTabRect(int tabIndex);
+    static sf::FloatRect getOrdersBoardCloseButtonRect();
+    static sf::FloatRect getOrdersBoardQuestButtonRect(int questIndex);
+    static sf::FloatRect getOrdersBoardShopBuyButtonRect(int itemIndex);
+    static sf::FloatRect getCraftingRecipeRect(int index);
+
+    void drawOrdersBoardModal(sf::RenderWindow& window,
+        int activeTab,
+        const std::vector<QuestRecord>& quests,
+        const std::vector<ShopCatalogItem>& shopItems,
+        const Inventory& inv,
+        int playerGold,
+        const ItemDatabase& itemDB,
+        sf::Vector2f mousePos);
 };

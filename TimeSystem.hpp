@@ -14,6 +14,7 @@ class TimeSystem {
 public:
     int currentDay = 1;
     float timeInMinutes = 0.f;  // 0 мин = 06:00, 1080 мин = 00:00, 1200 мин = 02:00
+    bool isRaining = false;     // Дождливая погода
 
     // Темп времени: 10 игровых минут каждые 3.5 сек (~21 сек на 1 час, ~7 минут на день)
     static constexpr float MINUTES_PER_SECOND = 10.f / 3.5f;

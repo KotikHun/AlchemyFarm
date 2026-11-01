@@ -59,18 +59,34 @@ World::World()
     cropsSprite = std::make_unique<sf::Sprite>(cropsTexture);
     cropsSprite->setScale({ 2.f, 2.f });
 
-    // 7. Инициализация тайлов травы
+    // Генерация карты
+    generateNewMap(0);
+}
+
+// ============================================
+// ГЕНЕРАЦИЯ КАРТЫ
+// ============================================
+void World::generateNewMap(int seed)
+{
+    // Очистка старых объектов и деревьев
+    objects.clear();
+    trees.clear();
+
+    // 1. Инициализация тайлов травы
     for (int y = 0; y < HEIGHT; y++)
     {
         for (int x = 0; x < WIDTH; x++)
         {
             map[y][x].type = 0; // трава
-            int hash = (x * 73856093) ^ (y * 19349663);
+            map[y][x].watered = false;
+            map[y][x].plantStage = 0;
+            map[y][x].daysGrown = 0;
+            int hash = ((x + seed * 13) * 73856093) ^ ((y + seed * 17) * 19349663);
             map[y][x].variant = (hash & 0x7FFFFFFF) % 8;
         }
     }
 
-    // 8. Водоем (пруд)
+    // 2. Водоем (пруд)
     for (int y = 10; y <= 14; y++)
     {
         for (int x = 17; x <= 22; x++)
@@ -79,29 +95,30 @@ World::World()
         }
     }
 
-    // 9. Деревья на ферме (строго за пределами радиуса 2 клеток вокруг дома и НИКОГДА на воде!)
-    trees.push_back(Tree{ { 50.f, 480.f }, 4 });   // Слева внизу
-    trees.push_back(Tree{ { 740.f, 70.f }, 4 });   // Справа вверху
-    trees.push_back(Tree{ { 820.f, 340.f }, 4 });  // Справа у края
-    trees.push_back(Tree{ { 450.f, 600.f }, 4 });  // Снизу по центру
-    trees.push_back(Tree{ { 720.f, 580.f }, 4 });  // Справа внизу
+    // 3. Деревья на ферме (ровно по тайловой сетке, ствол занимает ровно 1 тайл)
+    trees.push_back(Tree::createAtTile(3, 17, 4));   // Слева внизу
+    trees.push_back(Tree::createAtTile(24, 5, 4));   // Справа вверху
+    trees.push_back(Tree::createAtTile(26, 13, 4));  // Справа у края
+    trees.push_back(Tree::createAtTile(14, 20, 4));  // Снизу по центру
+    trees.push_back(Tree::createAtTile(23, 19, 4));  // Справа внизу
 
-    // 10. Зарезервированная зона: Дом + радиус строго 2 клеток (x in 0..12, y in 0..11)
+    // 4. Зарезервированная зона: Дом + радиус строго 2 клеток (x in 0..12, y in 0..11)
     // А также водоем: на воде и берегах ничего стоять не может!
     auto inReservedZone = [&](int x, int y) {
         if (x <= 12 && y <= 11) return true; // Чистая зона дома и 2 клеток вокруг него
         if (x >= 16 && x <= 23 && y >= 9 && y <= 15) return true; // Вода и берега: на воде ничего стоять не может!
         for (const auto& tr : trees)
         {
-            int tx = static_cast<int>(tr.position.x / TILE_SIZE);
-            int ty = static_cast<int>(tr.position.y / TILE_SIZE);
-            if (x >= tx - 1 && x <= tx + 3 && y >= ty - 1 && y <= ty + 4)
+            sf::FloatRect tb = tr.getTrunkBounds();
+            int tx = static_cast<int>(std::round(tb.position.x / TILE_SIZE));
+            int ty = static_cast<int>(std::round(tb.position.y / TILE_SIZE));
+            if (x == tx && y == ty)
                 return true;
         }
         return false;
     };
 
-    // 11. Объекты расчистки (камни, пни, сорняки)
+    // 5. Объекты расчистки (камни, сорняки)
     for (int y = 1; y < 24; y++)
     {
         for (int x = 1; x < 29; x++)
@@ -109,7 +126,7 @@ World::World()
             if (map[y][x].type != 0) continue; // На воде и грядках ничего не спавнится!
             if (inReservedZone(x, y)) continue;
 
-            int h = ((x * 45211) ^ (y * 982451)) & 0x7FFFFFFF;
+            int h = (((x + seed * 7) * 45211) ^ ((y + seed * 19) * 982451)) & 0x7FFFFFFF;
             int r = h % 100;
 
             if (r < 8)
@@ -433,24 +450,26 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
     float targetCenterX = targetX * TILE_SIZE + TILE_SIZE / 2.f;
     float targetCenterY = targetY * TILE_SIZE + TILE_SIZE / 2.f;
 
-    // 1. Рубка дерева
+    // 1. Рубка дерева (строго по тайлу основания ствола)
     for (auto it = trees.begin(); it != trees.end(); ++it)
     {
         sf::FloatRect trunk = it->getTrunkBounds();
-        float tcx = trunk.position.x + trunk.size.x / 2.f;
-        float tcy = trunk.position.y + trunk.size.y / 2.f;
+        int trunkTx = static_cast<int>(std::round(trunk.position.x / TILE_SIZE));
+        int trunkTy = static_cast<int>(std::round(trunk.position.y / TILE_SIZE));
 
-        float dx = targetCenterX - tcx;
-        float dy = targetCenterY - tcy;
-        if (dx * dx + dy * dy < 48.f * 48.f)
+        if (targetX == trunkTx && targetY == trunkTy)
         {
             if (itemId == "axe")
             {
                 it->hp--;
+                sf::Vector2f dropPos = { trunk.position.x, trunk.position.y };
+                // Свежие листья опадают с кроны дерева при каждом ударе
+                droppedItems.push_back(DroppedItem{ Item{ "leaves", 1 }, { dropPos.x + (std::rand() % 28 - 14.f), dropPos.y + (std::rand() % 16 - 8.f) }, 0.f });
+
                 if (it->hp <= 0)
                 {
-                    sf::Vector2f dropPos = { trunk.position.x, trunk.position.y };
                     droppedItems.push_back(DroppedItem{ Item{ "wood", 4 }, dropPos, 0.f });
+                    droppedItems.push_back(DroppedItem{ Item{ "leaves", 3 }, { dropPos.x - 10.f, dropPos.y + 6.f }, 0.f });
                     droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, { dropPos.x + 12.f, dropPos.y - 8.f }, 0.f });
                     trees.erase(it);
                 }
@@ -501,6 +520,10 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
                 {
                     removeObjectAt(targetX, targetY);
                     droppedItems.push_back(DroppedItem{ Item{ "fiber", 1 }, dropPos, 0.f });
+                    if (std::rand() % 2 == 0)
+                    {
+                        droppedItems.push_back(DroppedItem{ Item{ "leaves", 1 }, { dropPos.x + 8.f, dropPos.y - 4.f }, 0.f });
+                    }
                     if (std::rand() % 3 == 0)
                     {
                         droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, dropPos, 0.f });

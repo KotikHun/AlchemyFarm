@@ -48,6 +48,7 @@ bool ItemDatabase::loadFromFile(const std::string& path)
         data.category = itemJson.value("category", "Предмет");
         data.description = itemJson.value("description", "");
         data.effects = itemJson.value("effects", "");
+        data.sellPrice = itemJson.value("sellPrice", 0);
 
         if (data.id.empty())
         {

@@ -112,6 +112,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)vcpkg_installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -137,6 +138,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)vcpkg_installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -166,6 +168,8 @@
     <ClCompile Include="TimeSystem.cpp" />
     <ClCompile Include="House.cpp" />
     <ClCompile Include="AlchemySystem.cpp" />
+    <ClCompile Include="SoundManager.cpp" />
+    <ClCompile Include="SaveManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inventory.hpp" />
@@ -181,6 +185,8 @@
     <ClInclude Include="TimeSystem.hpp" />
     <ClInclude Include="House.hpp" />
     <ClInclude Include="AlchemySystem.hpp" />
+    <ClInclude Include="SoundManager.hpp" />
+    <ClInclude Include="SaveManager.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

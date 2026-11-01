@@ -44,6 +44,7 @@ void TimeSystem::advanceDay(bool /*fullRest*/)
     isFadingOut = false;
     isFadingIn = true;
     fadeAlpha = 255.f;
+    isRaining = (rand() % 100 < 30); // 30% шанс дождя
 }
 
 int TimeSystem::getHour() const
@@ -133,7 +134,7 @@ void TimeSystem::drawNightOverlay(sf::RenderWindow& window, const std::vector<st
 
     if (alpha <= 2.f) return;
 
-    sf::Vector2u winSize = window.getSize();
+    sf::Vector2u winSize = { 960, 800 };
 
     // Создаем или обновляем текстуру света при необходимости
     if (!isLightingInitialized || lightTexture.getSize() != winSize)
@@ -145,7 +146,7 @@ void TimeSystem::drawNightOverlay(sf::RenderWindow& window, const std::vector<st
         else
         {
             // Если ресайз не удался, рисуем простой полупрозрачный прямоугольник
-            sf::RectangleShape darkRect(sf::Vector2f(static_cast<float>(winSize.x), static_cast<float>(winSize.y)));
+            sf::RectangleShape darkRect(sf::Vector2f(960.f, 800.f));
             darkRect.setFillColor(sf::Color(tint.r, tint.g, tint.b, static_cast<std::uint8_t>(alpha)));
             window.draw(darkRect);
             return;
@@ -187,8 +188,7 @@ void TimeSystem::drawFade(sf::RenderWindow& window)
 {
     if (fadeAlpha <= 1.f) return;
 
-    sf::Vector2u winSize = window.getSize();
-    sf::RectangleShape fadeRect(sf::Vector2f(static_cast<float>(winSize.x), static_cast<float>(winSize.y)));
+    sf::RectangleShape fadeRect(sf::Vector2f(960.f, 800.f));
     fadeRect.setFillColor(sf::Color(0, 0, 0, static_cast<std::uint8_t>(fadeAlpha)));
     window.draw(fadeRect);
 }

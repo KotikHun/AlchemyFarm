@@ -40,4 +40,6 @@ vcpkg_installed/
 /AlchemyFarm/
 *.tlog
 *.idb
-*.recipe
+*.recipe 
+# User save data
+/data/saves/

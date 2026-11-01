@@ -51,6 +51,7 @@ struct World {
     std::vector<Tree> trees;
 
     World();
+    void generateNewMap(int seed = 0);
 
     void draw(sf::RenderWindow& window);
     void drawTrees(sf::RenderWindow& window, const Player& player);

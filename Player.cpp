@@ -87,24 +87,56 @@ void Player::update(float dt, float windowWidth, float windowHeight,
             int baseRow = 0;
             switch (currentAction)
             {
-            case PlayerAction::Water:   baseRow = 0; break;
+            case PlayerAction::Pickaxe: baseRow = 0; break;
             case PlayerAction::Hoe:     baseRow = 3; break;
             case PlayerAction::Axe:     baseRow = 6; break;
-            case PlayerAction::Pickaxe: baseRow = 9; break;
+            case PlayerAction::Water:   baseRow = 9; break;
             default:                    baseRow = 0; break;
             }
 
             int rowOffset = 0;
-            if (dirY > 0)       rowOffset = 0; // Вниз
-            else if (dirY < 0)  rowOffset = 2; // Вверх
-            else                rowOffset = 1; // Вправо / Влево
+            float scaleX = 2.0f;
+
+            if (currentAction == PlayerAction::Water)
+            {
+                if (dirY > 0)
+                {
+                    rowOffset = 0; // Лейка: Вниз
+                }
+                else if (dirY < 0)
+                {
+                    rowOffset = 2; // Лейка: Вверх
+                }
+                else
+                {
+                    rowOffset = 1; // Лейка: Вправо / Влево
+                    scaleX = (dirX < 0) ? -2.0f : 2.0f;
+                }
+            }
+            else
+            {
+                // Для Кирки (строки 0-2), Мотыги (3-5), Топора (6-8):
+                // строка 0 = горизонтальный замах, строка 1 = удар вниз, строка 2 = удар вверх
+                if (dirY > 0)
+                {
+                    rowOffset = 1; // Удар вниз
+                }
+                else if (dirY < 0)
+                {
+                    rowOffset = 2; // Удар вверх
+                }
+                else
+                {
+                    rowOffset = 0; // Удар вправо / влево
+                    scaleX = (dirX < 0) ? -2.0f : 2.0f;
+                }
+            }
 
             int row = baseRow + rowOffset;
 
             if (actionSprite)
             {
                 actionSprite->setTextureRect(sf::IntRect({ frame * 48, row * 48 }, { 48, 48 }));
-                float scaleX = (dirX < 0) ? -2.0f : 2.0f;
                 actionSprite->setScale({ scaleX, 2.0f });
                 actionSprite->setPosition({ pos.x + SIZE / 2.f, pos.y + SIZE / 2.f + 4.f });
             }

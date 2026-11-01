@@ -28,16 +28,6 @@ Game::Game()
         std::cerr << "Game: cannot load data/items.json" << std::endl;
     }
 
-    // Стартовые предметы игрока (мотыга, лейка, топор, кирка, семена, ягоды, пустые флаконы, стол алхимика)
-    inv.addItem("hoe", 1, 1);
-    inv.addItem("watering_can", 1, 1);
-    inv.addItem("axe", 1, 1);
-    inv.addItem("pickaxe", 1, 1);
-    inv.addItem("seeds", 10, 99);
-    inv.addItem("berry", 5, 99);
-    inv.addItem("empty_flask", 3, 99);
-    inv.addItem("alchemist_table", 1, 99);
-
     // 1. Спрайт сундука
     if (chestTexture.loadFromFile("assets/sprites/chest.png"))
     {
@@ -75,48 +65,992 @@ Game::Game()
         carpetSprite->setScale({ 1.0f, 1.0f });
     }
 
-    // --- СТАРТОВЫЕ ОБЪЕКТЫ НА УЛИЦЕ ---
-    // Стартовый сундук на карте
-    Chest chest;
-    chest.slotCount = 18;
-    chest.type = "wooden";
-    chest.position = { 14 * 32.f, 10 * 32.f };
-    chest.isInside = false;
-    chests.push_back(chest);
-
-    // Магический котел возле сундука
-    Furniture cauldronObj;
-    cauldronObj.id = "cauldron";
-    cauldronObj.position = { 15 * 32.f + 8.f, 10 * 32.f };
-    cauldronObj.isInside = false;
-    furniture.push_back(cauldronObj);
-
-    // --- СТАРТОВЫЕ ОБЪЕКТЫ ВНУТРИ ДОМА ---
-    // Деревянная кровать в верхнем левом углу комнаты
-    Furniture bedObj;
-    bedObj.id = "bed";
-    bedObj.position = { House::ROOM_X + 32.f, House::ROOM_Y + 85.f };
-    bedObj.isInside = true;
-    furniture.push_back(bedObj);
-
-    // Узорный ковер (2x3 тайла) в центре комнаты
-    Furniture carpetObj;
-    carpetObj.id = "carpet";
-    carpetObj.position = { House::ROOM_X + 160.f, House::ROOM_Y + 80.f };
-    carpetObj.isInside = true;
-    furniture.push_back(carpetObj);
-
     // Маркер тайла перед игроком
     targetMarker.setSize({ World::TILE_SIZE, World::TILE_SIZE });
     targetMarker.setFillColor(sf::Color(255, 255, 0, 80));
     targetMarker.setOutlineColor(sf::Color(255, 255, 255, 140));
     targetMarker.setOutlineThickness(1.5f);
 
-    // Стартовая позиция игрока — на крыльце/коврике перед дверью нового дома
+    // Частицы для фона главного меню
+    initParticles();
+
+    // Начальная генерация мира и стартовых объектов
+    startNewGame();
+
+    updateLetterboxView(window.getSize().x, window.getSize().y);
+    initRain();
+    initShopCatalog();
+    initDailyQuests(1);
+
+    // Старт с главного меню
+    gameState = GameState::MainMenu;
+    currentModal = MenuModal::None;
+    refreshSaveSlots();
+}
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ И ОБНОВЛЕНИЕ ЧАСТИЦ МЕНЮ
+// ============================================
+void Game::initParticles()
+{
+    menuParticles.clear();
+    for (int i = 0; i < 40; i++)
+    {
+        MenuParticle p;
+        p.pos = { static_cast<float>(rand() % 960), static_cast<float>(rand() % 800) };
+        p.vel = { ((rand() % 20) - 10) * 1.5f, -15.f - (rand() % 25) };
+        p.alpha = 140.f + (rand() % 90);
+        p.size = 2.f + (rand() % 3);
+        p.maxLife = 3.f + (rand() % 4);
+        p.life = ((rand() % 100) / 100.f) * p.maxLife;
+
+        int cType = rand() % 3;
+        if (cType == 0) p.color = sf::Color(255, 220, 110);      // Золотистый
+        else if (cType == 1) p.color = sf::Color(120, 230, 160); // Травяной
+        else p.color = sf::Color(160, 215, 255);                 // Магический синий
+
+        menuParticles.push_back(p);
+    }
+}
+
+void Game::updateParticles(float dt)
+{
+    for (auto& p : menuParticles)
+    {
+        p.pos += p.vel * dt;
+        p.pos.x += std::sin(menuAnimTime * 2.f + p.pos.y * 0.05f) * 8.f * dt;
+        p.life += dt;
+        if (p.life >= p.maxLife || p.pos.y < -15.f)
+        {
+            p.pos = { static_cast<float>(rand() % 960), 810.f };
+            p.vel = { ((rand() % 20) - 10) * 1.5f, -15.f - (rand() % 25) };
+            p.life = 0.f;
+            p.maxLife = 3.f + (rand() % 4);
+        }
+    }
+}
+
+// ============================================
+// ВИРТУАЛЬНЫЙ ЭКРАН И LETTERBOX (СОХРАНЕНИЕ ПРОПОРЦИЙ)
+// ============================================
+void Game::updateLetterboxView(unsigned int windowWidth, unsigned int windowHeight)
+{
+    float windowRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
+    float viewRatio = VIRTUAL_WIDTH / VIRTUAL_HEIGHT;
+
+    float sizeX = 1.0f;
+    float sizeY = 1.0f;
+    float posX = 0.0f;
+    float posY = 0.0f;
+
+    if (windowRatio >= viewRatio)
+    {
+        // Окно шире -> черные полосы по бокам (pillarbox)
+        sizeX = viewRatio / windowRatio;
+        posX = (1.0f - sizeX) / 2.0f;
+    }
+    else
+    {
+        // Окно выше -> черные полосы сверху и снизу (letterbox)
+        sizeY = windowRatio / viewRatio;
+        posY = (1.0f - sizeY) / 2.0f;
+    }
+
+    letterboxView.setSize({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+    letterboxView.setCenter({ VIRTUAL_WIDTH / 2.f, VIRTUAL_HEIGHT / 2.f });
+    letterboxView.setViewport(sf::FloatRect({ posX, posY }, { sizeX, sizeY }));
+    window.setView(letterboxView);
+}
+
+sf::Vector2f Game::getMouseVirtualCoords() const
+{
+    return window.mapPixelToCoords(sf::Mouse::getPosition(window), letterboxView);
+}
+
+sf::Vector2i Game::getMouseVirtualPixel() const
+{
+    sf::Vector2f c = getMouseVirtualCoords();
+    return sf::Vector2i(static_cast<int>(std::round(c.x)), static_cast<int>(std::round(c.y)));
+}
+
+// ============================================
+// СИСТЕМА ДОЖДЯ
+// ============================================
+void Game::initRain()
+{
+    rainDrops.clear();
+    for (int i = 0; i < 70; i++)
+    {
+        RainDrop d;
+        d.pos = { static_cast<float>(rand() % 960), static_cast<float>(rand() % 800) };
+        d.speed = 480.f + (rand() % 160);
+        d.length = 10.f + (rand() % 8);
+        rainDrops.push_back(d);
+    }
+}
+
+void Game::updateRain(float dt)
+{
+    if (!timeSystem.isRaining) return;
+
+    for (auto& d : rainDrops)
+    {
+        d.pos.y += d.speed * dt;
+        d.pos.x -= d.speed * 0.25f * dt;
+
+        if (d.pos.y > 810.f || d.pos.x < -20.f)
+        {
+            d.pos.y = -15.f - (rand() % 30);
+            d.pos.x = static_cast<float>(rand() % 1020);
+            d.speed = 480.f + (rand() % 160);
+            d.length = 10.f + (rand() % 8);
+        }
+    }
+}
+
+void Game::drawRain(sf::RenderWindow& window)
+{
+    if (!timeSystem.isRaining || house.isInside) return;
+
+    // Легкая серовато-голубая пелена дождя
+    sf::RectangleShape rainMist({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+    rainMist.setFillColor(sf::Color(15, 30, 50, 45));
+    window.draw(rainMist);
+
+    // Капли дождя
+    for (const auto& d : rainDrops)
+    {
+        sf::Vertex line[2] = {
+            sf::Vertex(d.pos, sf::Color(160, 200, 255, 180)),
+            sf::Vertex({ d.pos.x - d.length * 0.25f, d.pos.y + d.length }, sf::Color(200, 230, 255, 230))
+        };
+        window.draw(line, 2, sf::PrimitiveType::Lines);
+    }
+}
+
+// ============================================
+// ДОСКА ОБЪЯВЛЕНИЙ И ЛАВКА ПРИПАСОВ
+// ============================================
+void Game::initDailyQuests(int day)
+{
+    dailyQuests.clear();
+
+    if (day % 3 == 1)
+    {
+        QuestRecord q1;
+        q1.id = "q_berries";
+        q1.clientName = "Травница Элизабет";
+        q1.title = "Сбор диких ягод";
+        q1.description = "Требуется: 3 Ягоды для целебного отвара";
+        q1.targetItemId = "berry";
+        q1.targetCount = 3;
+        q1.rewardGold = 70;
+        q1.hint = "Подсказка: Разотрите ягоды в ступке алхимика в порошок.";
+        dailyQuests.push_back(q1);
+
+        QuestRecord q2;
+        q2.id = "q_water";
+        q2.clientName = "Кузнец Брок";
+        q2.title = "Родниковая вода";
+        q2.description = "Требуется: 1 Флакон с водой для закалки стали";
+        q2.targetItemId = "water_flask";
+        q2.targetCount = 1;
+        q2.rewardGold = 45;
+        q2.hint = "Подсказка: Возьмите флакон в руки и нажмите [E] у пруда.";
+        dailyQuests.push_back(q2);
+
+        QuestRecord q3;
+        q3.id = "q_wood";
+        q3.clientName = "Лесник Робин";
+        q3.title = "Дубовые бревна";
+        q3.description = "Требуется: 5 Древесины для починки забора";
+        q3.targetItemId = "wood";
+        q3.targetCount = 5;
+        q3.rewardGold = 80;
+        q3.hint = "Подсказка: Срубите дерево топором, ударив по стволу.";
+        dailyQuests.push_back(q3);
+    }
+    else if (day % 3 == 2)
+    {
+        QuestRecord q1;
+        q1.id = "q_powder";
+        q1.clientName = "Алхимик Мортимер";
+        q1.title = "Ягодный порошок";
+        q1.description = "Требуется: 2 Порошка из ягод для проведения опыта";
+        q1.targetItemId = "berry_powder";
+        q1.targetCount = 2;
+        q1.rewardGold = 130;
+        q1.hint = "Подсказка: Положите ягоды в ступку на столе и перетрите.";
+        dailyQuests.push_back(q1);
+
+        QuestRecord q2;
+        q2.id = "q_stone";
+        q2.clientName = "Каменщик Дарин";
+        q2.title = "Прочный камень";
+        q2.description = "Требуется: 4 Камня для укрепления фундамента";
+        q2.targetItemId = "stone";
+        q2.targetCount = 4;
+        q2.rewardGold = 65;
+        q2.hint = "Подсказка: Раскалывайте серые булыжники киркой.";
+        dailyQuests.push_back(q2);
+
+        QuestRecord q3;
+        q3.id = "q_energy";
+        q3.clientName = "Стражник Гарет";
+        q3.title = "Зелье бодрости";
+        q3.description = "Требуется: 1 Зелье энергии перед ночным дозором";
+        q3.targetItemId = "energy_potion";
+        q3.targetCount = 1;
+        q3.rewardGold = 170;
+        q3.hint = "Подсказка: Сварите в котле воду + ягодный порошок.";
+        dailyQuests.push_back(q3);
+    }
+    else
+    {
+        QuestRecord q1;
+        q1.id = "q_speed";
+        q1.clientName = "Гонец Лиам";
+        q1.title = "Снадобье скорости";
+        q1.description = "Требуется: 1 Зелье скорости для быстрой доставки вести";
+        q1.targetItemId = "speed_potion";
+        q1.targetCount = 1;
+        q1.rewardGold = 190;
+        q1.hint = "Подсказка: Зелье скорости можно выпить (ПКМ) для ускорения бега.";
+        dailyQuests.push_back(q1);
+
+        QuestRecord q2;
+        q2.id = "q_fiber";
+        q2.clientName = "Ткачиха Мира";
+        q2.title = "Растительное волокно";
+        q2.description = "Требуется: 4 Растительных волокна для пряжи";
+        q2.targetItemId = "fiber";
+        q2.targetCount = 4;
+        q2.rewardGold = 85;
+        q2.hint = "Подсказка: Волокна падают при скашивании травы.";
+        dailyQuests.push_back(q2);
+
+        QuestRecord q3;
+        q3.id = "q_growth";
+        q3.clientName = "Садовник Орен";
+        q3.title = "Эликсир роста";
+        q3.description = "Требуется: 1 Эликсир роста для капризных саженцев";
+        q3.targetItemId = "growth_potion";
+        q3.targetCount = 1;
+        q3.rewardGold = 240;
+        q3.hint = "Подсказка: Эликсир роста (ПКМ) мгновенно созревает грядки вокруг.";
+        dailyQuests.push_back(q3);
+    }
+}
+
+void Game::initShopCatalog()
+{
+    shopCatalog.clear();
+
+    ShopCatalogItem s1;
+    s1.itemId = "seeds";
+    s1.name = "Семена лесных трав (x1)";
+    s1.price = 15;
+    s1.desc = "Быстро прорастают на политых вспаханных грядках.";
+    shopCatalog.push_back(s1);
+
+    ShopCatalogItem s2;
+    s2.itemId = "empty_flask";
+    s2.name = "Пустой флакон (x1)";
+    s2.price = 25;
+    s2.desc = "Стеклянная колба для набора родниковой воды и зелий.";
+    shopCatalog.push_back(s2);
+
+    ShopCatalogItem s3;
+    s3.itemId = "berry";
+    s3.name = "Свежая ягода (x1)";
+    s3.price = 20;
+    s3.desc = "Вкусная сочная ягода. Источник энергии и порошка.";
+    shopCatalog.push_back(s3);
+
+    ShopCatalogItem s4;
+    s4.itemId = "wood";
+    s4.name = "Древесина (x3)";
+    s4.price = 30;
+    s4.desc = "Крепкие дубовые бревна для ремесла и сундуков.";
+    shopCatalog.push_back(s4);
+
+    ShopCatalogItem s5;
+    s5.itemId = "stone";
+    s5.name = "Камень (x3)";
+    s5.price = 35;
+    s5.desc = "Прочные булыжники для укреплений и алхимии.";
+    shopCatalog.push_back(s5);
+}
+
+void Game::handleOrdersBoardEvents(const sf::Event& event)
+{
+    sf::Vector2f mpos = getMouseVirtualCoords();
+
+    if (const auto* mouseBtn = event.getIf<sf::Event::MouseButtonPressed>())
+    {
+        if (mouseBtn->button == sf::Mouse::Button::Left)
+        {
+            // 1. Кнопка закрытия [X]
+            if (UI::getOrdersBoardCloseButtonRect().contains(mpos))
+            {
+                sound.playClick();
+                isOrdersBoardOpen = false;
+                return;
+            }
+
+            // 2. Переключение вкладок
+            for (int t = 0; t < 2; t++)
+            {
+                if (UI::getOrdersBoardTabRect(t).contains(mpos))
+                {
+                    sound.playClick();
+                    ordersBoardTab = t;
+                    return;
+                }
+            }
+
+            // 3. Вкладка заказов: сдача квестов
+            if (ordersBoardTab == 0)
+            {
+                for (size_t i = 0; i < dailyQuests.size() && i < 3; i++)
+                {
+                    auto& q = dailyQuests[i];
+                    if (!q.isCompleted && UI::getOrdersBoardQuestButtonRect(static_cast<int>(i)).contains(mpos))
+                    {
+                        if (inv.countItem(q.targetItemId) >= q.targetCount)
+                        {
+                            inv.removeItem(q.targetItemId, q.targetCount);
+                            player.gold += q.rewardGold;
+                            q.isCompleted = true;
+                            sound.playCoin();
+
+                            FloatingText ft;
+                            ft.text = "Заказ сдан: +" + std::to_string(q.rewardGold) + " золота!";
+                            ft.position = { player.shape.getPosition().x - 60.f, player.shape.getPosition().y - 30.f };
+                            ft.color = sf::Color(255, 230, 90);
+                            ft.timer = 2.5f;
+                            floatingTexts.push_back(ft);
+                        }
+                        return;
+                    }
+                }
+            }
+            // 4. Вкладка лавки: покупка товаров
+            else if (ordersBoardTab == 1)
+            {
+                for (size_t i = 0; i < shopCatalog.size() && i < 5; i++)
+                {
+                    const auto& item = shopCatalog[i];
+                    if (UI::getOrdersBoardShopBuyButtonRect(static_cast<int>(i)).contains(mpos))
+                    {
+                        if (player.gold >= item.price)
+                        {
+                            int count = (item.itemId == "wood" || item.itemId == "stone") ? 3 : 1;
+                            player.gold -= item.price;
+                            inv.addItem(item.itemId, count, 99);
+                            sound.playCoin();
+
+                            FloatingText ft;
+                            ft.text = "Куплено: " + item.name + " (-" + std::to_string(item.price) + "g)";
+                            ft.position = { player.shape.getPosition().x - 60.f, player.shape.getPosition().y - 30.f };
+                            ft.color = sf::Color(140, 255, 140);
+                            ft.timer = 2.0f;
+                            floatingTexts.push_back(ft);
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    else if (const auto* key = event.getIf<sf::Event::KeyPressed>())
+    {
+        if (key->code == sf::Keyboard::Key::Escape || key->code == sf::Keyboard::Key::E)
+        {
+            isOrdersBoardOpen = false;
+        }
+    }
+}
+
+// ============================================
+// СТАРТ НОВОЙ ИГРЫ И ГЕНЕРАЦИЯ МИРА
+// ============================================
+void Game::startNewGame()
+{
+    // 1. Сброс игрока
+    player.energy = player.maxEnergy;
+    player.isExhausted = false;
+    player.isActing = false;
+    player.actionTimer = 0.f;
+    player.dirX = 0;
+    player.dirY = 1;
+    player.gold = 100;
     player.shape.setPosition({ house.exteriorPos.x + 32.f - 16.f, house.exteriorPos.y - 48.f });
 
-    // Уведомление о стартовом предмете в руках
+    // 2. Сброс инвентаря на стартовый набор
+    inv = Inventory();
+    inv.addItem("hoe", 1, 1);
+    inv.addItem("watering_can", 1, 1);
+    inv.addItem("axe", 1, 1);
+    inv.addItem("pickaxe", 1, 1);
+    inv.addItem("seeds", 10, 99);
+    inv.addItem("berry", 5, 99);
+    inv.addItem("empty_flask", 3, 99);
+    inv.addItem("alchemist_table", 1, 99);
+
+    // 3. Сброс времени
+    timeSystem = TimeSystem();
+
+    // 4. Сброс дома и интерьера
+    house.isInside = false;
+
+    // 5. Генерация новой карты мира
+    world.generateNewMap(rand() % 1000);
+
+    // 6. Очистка и установка стартовых сундуков и мебели
+    chests.clear();
+    furniture.clear();
+    droppedItems.clear();
+    floatingTexts.clear();
+
+    // Стартовый деревянный сундук на улице (Tile 13, 10)
+    Chest chest;
+    chest.slotCount = 18;
+    chest.type = "wooden";
+    chest.position = { 13 * 32.f, 10 * 32.f }; // { 416.f, 320.f }
+    chest.isInside = false;
+    chests.push_back(chest);
+
+    // Ящик сбыта товаров (Shipping Bin) возле дома (Tile 12, 10)
+    Chest shippingBin;
+    shippingBin.slotCount = 18;
+    shippingBin.type = "shipping_bin";
+    shippingBin.position = { 12 * 32.f, 10 * 32.f }; // { 384.f, 320.f }
+    shippingBin.isInside = false;
+    chests.push_back(shippingBin);
+
+    // Магический котел возле сундука (Tile 14, 10)
+    Furniture cauldronObj;
+    cauldronObj.id = "cauldron";
+    cauldronObj.position = { 14 * 32.f, 10 * 32.f }; // { 448.f, 320.f }
+    cauldronObj.isInside = false;
+    furniture.push_back(cauldronObj);
+
+    // Внутри дома: кровать и ковер
+    Furniture bedObj;
+    bedObj.id = "bed";
+    bedObj.position = { House::ROOM_X + 32.f, House::ROOM_Y + 85.f };
+    bedObj.isInside = true;
+    furniture.push_back(bedObj);
+
+    Furniture carpetObj;
+    carpetObj.id = "carpet";
+    carpetObj.position = { House::ROOM_X + 160.f, House::ROOM_Y + 80.f };
+    carpetObj.isInside = true;
+    furniture.push_back(carpetObj);
+
+    // 7. Сброс алхимии
+    alchemy.isCauldronOpen = false;
+    alchemy.isTableOpen = false;
+    alchemy.showRecipes = false;
+
+    // 8. Сброс окон и слота
+    activeSlot = 0;
+    isInventoryOpen = false;
+    isDragging = false;
+    nearbyChest = nullptr;
+    nearbyFurnitureIdx = -1;
+    playerPrompt.clear();
+    inspectedItemId.clear();
+
     triggerActiveSlotNotification();
+}
+
+// ============================================
+// ЗАПУСК ЗАГРУЗКИ НОВОЙ ИГРЫ
+// ============================================
+void Game::startLoadingGame()
+{
+    gameState = GameState::Loading;
+    loadingProgress = 0.f;
+    loadingTimer = 0.f;
+    currentTipIndex = rand() % 5;
+    loadingStageText = "Инициализация алхимических систем...";
+
+    // Генерация свежего мира и сброс состояния
+    startNewGame();
+}
+
+void Game::updateMenu(float dt)
+{
+    menuAnimTime += dt;
+    updateParticles(dt);
+
+    sf::Vector2i mpos = getMouseVirtualPixel();
+    hoveredMenuButton = -1;
+
+    if (currentModal == MenuModal::None)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            if (UI::getMainMenuButtonRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+            {
+                hoveredMenuButton = i;
+                break;
+            }
+        }
+    }
+    else if (currentModal == MenuModal::About)
+    {
+        if (UI::getAboutBackButtonRect().contains(static_cast<sf::Vector2f>(mpos)))
+        {
+            hoveredMenuButton = 0; // Для подсветки кнопки Назад в drawAboutModal
+        }
+    }
+}
+
+void Game::updateLoading(float dt)
+{
+    menuAnimTime += dt;
+    loadingTimer += dt;
+    float duration = 1.8f;
+    loadingProgress = loadingTimer / duration;
+
+    if (loadingProgress < 0.25f)
+    {
+        loadingStageText = "Очистка поля и вспашка почвы...";
+    }
+    else if (loadingProgress < 0.50f)
+    {
+        loadingStageText = "Генерация водоема и лесных зарослей...";
+    }
+    else if (loadingProgress < 0.75f)
+    {
+        loadingStageText = "Подготовка инструментов, семян и зелий...";
+    }
+    else if (loadingProgress < 0.95f)
+    {
+        loadingStageText = "Обустройство дома и алхимической лаборатории...";
+    }
+    else
+    {
+        loadingStageText = "Мир готов! Добро пожаловать на ферму!";
+    }
+
+    if (loadingProgress >= 1.0f)
+    {
+        loadingProgress = 1.0f;
+        gameState = GameState::Playing;
+    }
+}
+
+void Game::handleMenuEvents(const sf::Event& event)
+{
+    sf::Vector2i mpos = getMouseVirtualPixel();
+    float mx = static_cast<float>(mpos.x);
+    float my = static_cast<float>(mpos.y);
+
+    if (const auto* mouseBtn = event.getIf<sf::Event::MouseButtonPressed>())
+    {
+        if (mouseBtn->button == sf::Mouse::Button::Left)
+        {
+            if (currentModal == MenuModal::None)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    if (UI::getMainMenuButtonRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                    {
+                        if (i == 0) // Новая игра -> запуск загрузки
+                        {
+                            startLoadingGame();
+                        }
+                        else if (i == 1) // Загрузить игру
+                        {
+                            currentModal = MenuModal::Saves;
+                            isSaveMode = false;
+                            pendingDeleteSlot = -1;
+                            refreshSaveSlots();
+                        }
+                        else if (i == 2) // Настройки
+                        {
+                            currentModal = MenuModal::Settings;
+                        }
+                        else if (i == 3) // Об игре
+                        {
+                            currentModal = MenuModal::About;
+                        }
+                        else if (i == 4) // Выход
+                        {
+                            window.close();
+                        }
+                        return;
+                    }
+                }
+            }
+            else if (currentModal == MenuModal::Settings)
+            {
+                // Кнопка звука [ - ]
+                if (UI::getSettingsSoundMinusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.soundVolume = std::max(0, settings.soundVolume - 10);
+                }
+                // Кнопка звука [ + ]
+                else if (UI::getSettingsSoundPlusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.soundVolume = std::min(100, settings.soundVolume + 10);
+                }
+                // Кнопка музыки [ - ]
+                else if (UI::getSettingsMusicMinusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.musicVolume = std::max(0, settings.musicVolume - 10);
+                }
+                // Кнопка музыки [ + ]
+                else if (UI::getSettingsMusicPlusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.musicVolume = std::min(100, settings.musicVolume + 10);
+                }
+                // Кнопка Назад
+                else if (UI::getSettingsBackButtonRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    currentModal = MenuModal::None;
+                }
+            }
+            else if (currentModal == MenuModal::Saves)
+            {
+                bool handled = false;
+                for (int i = 0; i < 3; i++)
+                {
+                    const SaveSlotInfo& sInfo = (i < static_cast<int>(cachedSaveSlots.size())) ? cachedSaveSlots[i] : SaveSlotInfo{};
+
+                    if (sInfo.exists)
+                    {
+                        // Кнопка [Загрузить / Записать]
+                        if (UI::getSavesActionBtnRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                        {
+                            if (isSaveMode)
+                            {
+                                saveCurrentGame(i + 1);
+                                refreshSaveSlots();
+                            }
+                            else
+                            {
+                                loadGameFromSlot(i + 1);
+                            }
+                            handled = true;
+                            break;
+                        }
+
+                        // Кнопка [Удалить]
+                        if (UI::getSavesDeleteBtnRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                        {
+                            if (pendingDeleteSlot == (i + 1))
+                            {
+                                deleteGameSlot(i + 1);
+                                refreshSaveSlots();
+                                pendingDeleteSlot = -1;
+                            }
+                            else
+                            {
+                                pendingDeleteSlot = i + 1;
+                                sound.playClick();
+                            }
+                            handled = true;
+                            break;
+                        }
+                    }
+                    else if (isSaveMode)
+                    {
+                        // Пустой слот: кнопка [Сохранить]
+                        if (UI::getSavesEmptyBtnRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                        {
+                            saveCurrentGame(i + 1);
+                            refreshSaveSlots();
+                            handled = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Кнопка [ НАЗАД ]
+                if (!handled && UI::getSavesBackButtonRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    currentModal = MenuModal::None;
+                    pendingDeleteSlot = -1;
+                    sound.playClick();
+                }
+                else if (!handled)
+                {
+                    pendingDeleteSlot = -1;
+                }
+            }
+            else if (currentModal == MenuModal::About)
+            {
+                // Кнопка Назад
+                if (UI::getAboutBackButtonRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    currentModal = MenuModal::None;
+                }
+            }
+        }
+    }
+    else if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>())
+    {
+        if (keyPressed->code == sf::Keyboard::Key::Escape)
+        {
+            if (currentModal != MenuModal::None)
+            {
+                currentModal = MenuModal::None;
+            }
+        }
+        else if (keyPressed->code == sf::Keyboard::Key::Enter)
+        {
+            if (currentModal == MenuModal::None)
+            {
+                startLoadingGame();
+            }
+        }
+    }
+}
+
+void Game::handleLoadingEvents(const sf::Event& event)
+{
+    if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>())
+    {
+        if (keyPressed->code == sf::Keyboard::Key::Space ||
+            keyPressed->code == sf::Keyboard::Key::Enter)
+        {
+            loadingProgress = 1.0f;
+            gameState = GameState::Playing;
+        }
+    }
+    else if (const auto* mouseBtn = event.getIf<sf::Event::MouseButtonPressed>())
+    {
+        if (mouseBtn->button == sf::Mouse::Button::Left)
+        {
+            loadingProgress = 1.0f;
+            gameState = GameState::Playing;
+        }
+    }
+}
+
+void Game::handlePauseEvents(const sf::Event& event)
+{
+    sf::Vector2i mpos = getMouseVirtualPixel();
+    float mx = static_cast<float>(mpos.x);
+    float my = static_cast<float>(mpos.y);
+
+    if (const auto* mouseBtn = event.getIf<sf::Event::MouseButtonPressed>())
+    {
+        if (mouseBtn->button == sf::Mouse::Button::Left)
+        {
+            if (currentModal == MenuModal::None)
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    if (UI::getPauseMenuButtonRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                    {
+                        sound.playClick();
+                        if (i == 0) // Продолжить
+                        {
+                            gameState = GameState::Playing;
+                        }
+                        else if (i == 1) // Сохранить игру
+                        {
+                            currentModal = MenuModal::Saves;
+                            isSaveMode = true;
+                            pendingDeleteSlot = -1;
+                            refreshSaveSlots();
+                        }
+                        else if (i == 2) // Загрузить игру
+                        {
+                            currentModal = MenuModal::Saves;
+                            isSaveMode = false;
+                            pendingDeleteSlot = -1;
+                            refreshSaveSlots();
+                        }
+                        else if (i == 3) // Настройки
+                        {
+                            currentModal = MenuModal::Settings;
+                        }
+                        else if (i == 4) // В главное меню
+                        {
+                            gameState = GameState::MainMenu;
+                            currentModal = MenuModal::None;
+                            refreshSaveSlots();
+                        }
+                        else if (i == 5) // Выйти из игры
+                        {
+                            window.close();
+                        }
+                        return;
+                    }
+                }
+            }
+            else if (currentModal == MenuModal::Saves)
+            {
+                bool handled = false;
+                for (int i = 0; i < 3; i++)
+                {
+                    const SaveSlotInfo& sInfo = (i < static_cast<int>(cachedSaveSlots.size())) ? cachedSaveSlots[i] : SaveSlotInfo{};
+
+                    if (sInfo.exists)
+                    {
+                        // Кнопка [Загрузить / Записать]
+                        if (UI::getSavesActionBtnRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                        {
+                            if (isSaveMode)
+                            {
+                                saveCurrentGame(i + 1);
+                                refreshSaveSlots();
+                            }
+                            else
+                            {
+                                loadGameFromSlot(i + 1);
+                            }
+                            handled = true;
+                            break;
+                        }
+
+                        // Кнопка [Удалить]
+                        if (UI::getSavesDeleteBtnRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                        {
+                            if (pendingDeleteSlot == (i + 1))
+                            {
+                                deleteGameSlot(i + 1);
+                                refreshSaveSlots();
+                                pendingDeleteSlot = -1;
+                            }
+                            else
+                            {
+                                pendingDeleteSlot = i + 1;
+                                sound.playClick();
+                            }
+                            handled = true;
+                            break;
+                        }
+                    }
+                    else if (isSaveMode)
+                    {
+                        // Пустой слот: кнопка [Сохранить]
+                        if (UI::getSavesEmptyBtnRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+                        {
+                            saveCurrentGame(i + 1);
+                            refreshSaveSlots();
+                            handled = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Кнопка [ НАЗАД ]
+                if (!handled && UI::getSavesBackButtonRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    currentModal = MenuModal::None;
+                    pendingDeleteSlot = -1;
+                    sound.playClick();
+                }
+                else if (!handled)
+                {
+                    pendingDeleteSlot = -1;
+                }
+            }
+            else if (currentModal == MenuModal::Settings)
+            {
+                // Кнопка звука [ - ]
+                if (UI::getSettingsSoundMinusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.soundVolume = std::max(0, settings.soundVolume - 10);
+                }
+                // Кнопка звука [ + ]
+                else if (UI::getSettingsSoundPlusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.soundVolume = std::min(100, settings.soundVolume + 10);
+                }
+                // Кнопка музыки [ - ]
+                else if (UI::getSettingsMusicMinusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.musicVolume = std::max(0, settings.musicVolume - 10);
+                }
+                // Кнопка музыки [ + ]
+                else if (UI::getSettingsMusicPlusRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    settings.musicVolume = std::min(100, settings.musicVolume + 10);
+                }
+                // Кнопка Назад
+                else if (UI::getSettingsBackButtonRect().contains(static_cast<sf::Vector2f>(mpos)))
+                {
+                    currentModal = MenuModal::None;
+                }
+            }
+        }
+    }
+    else if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>())
+    {
+        if (keyPressed->code == sf::Keyboard::Key::Escape)
+        {
+            if (currentModal != MenuModal::None)
+            {
+                currentModal = MenuModal::None;
+            }
+            else
+            {
+                gameState = GameState::Playing;
+            }
+        }
+    }
+}
+
+// ============================================
+// СИСТЕМА СОХРАНЕНИЙ И СЛОТОВ
+// ============================================
+void Game::refreshSaveSlots()
+{
+    cachedSaveSlots = SaveManager::getAllSlotsInfo();
+}
+
+void Game::saveCurrentGame(int slot)
+{
+    currentSaveSlot = slot;
+    bool ok = SaveManager::saveGame(slot, player, inv, timeSystem, world, house, chests, furniture, alchemy);
+    if (ok)
+    {
+        sound.playCoin();
+        FloatingText ft;
+        ft.text = "Игра сохранена в Слот " + std::to_string(slot) + "!";
+        ft.position = { 340.f, 210.f };
+        ft.color = sf::Color(140, 255, 140);
+        ft.timer = 2.5f;
+        floatingTexts.push_back(ft);
+    }
+}
+
+void Game::loadGameFromSlot(int slot)
+{
+    if (!SaveManager::doesSlotExist(slot)) return;
+    currentSaveSlot = slot;
+    currentModal = MenuModal::None;
+    sound.playClick();
+
+    gameState = GameState::Loading;
+    loadingProgress = 0.f;
+    loadingTimer = 0.f;
+    currentTipIndex = rand() % 5;
+    loadingStageText = "Загрузка сохраненных данных мира...";
+
+    SaveManager::loadGame(slot, player, inv, timeSystem, world, house, chests, furniture, alchemy);
+    triggerActiveSlotNotification();
+}
+
+void Game::deleteGameSlot(int slot)
+{
+    SaveManager::deleteSlot(slot);
+    sound.playPop();
+    FloatingText ft;
+    ft.text = "Сохранение в слоте " + std::to_string(slot) + " удалено.";
+    ft.position = { 340.f, 210.f };
+    ft.color = sf::Color(255, 130, 130);
+    ft.timer = 2.0f;
+    floatingTexts.push_back(ft);
 }
 
 // ============================================
@@ -124,10 +1058,107 @@ Game::Game()
 // ============================================
 void Game::sleepInBed(bool fullRest)
 {
-    timeSystem.advanceDay(fullRest);
+    if (isTransitioningSleep || isTransitioningWake) return;
+    isTransitioningSleep = true;
+    fadeTarget = 255.f;
+    sleepReport.fullRest = fullRest;
+    sound.playSleep();
+}
+
+void Game::triggerSleep(bool fullRest)
+{
+    sleepReport.fullRest = fullRest;
+    sleepReport.dayNumber = timeSystem.currentDay;
+    sleepReport.soldItems.clear();
+    sleepReport.totalEarned = 0;
+    sleepReport.previousGold = player.gold;
+
+    // Ищем ящик сбыта (Shipping Bin)
+    Chest* shippingBin = nullptr;
+    for (auto& c : chests)
+    {
+        if (c.type == "shipping_bin")
+        {
+            shippingBin = &c;
+            break;
+        }
+    }
+
+    if (shippingBin != nullptr)
+    {
+        std::map<std::string, int> aggregated;
+        for (int i = 0; i < shippingBin->slotCount; i++)
+        {
+            const Item& itm = shippingBin->inventory.getSlot(i);
+            if (!itm.isEmpty())
+            {
+                aggregated[itm.id] += itm.count;
+            }
+        }
+
+        for (const auto& [id, count] : aggregated)
+        {
+            const ItemData* d = itemDB.find(id);
+            int priceEach = d ? d->sellPrice : 0;
+            int total = priceEach * count;
+
+            SoldItemRecord rec;
+            rec.id = id;
+            rec.name = d ? d->name : id;
+            rec.count = count;
+            rec.priceEach = priceEach;
+            rec.totalPrice = total;
+            sleepReport.soldItems.push_back(rec);
+            sleepReport.totalEarned += total;
+        }
+
+        // Очищаем ящик сбыта после ночной продажи
+        shippingBin->inventory = Inventory();
+        shippingBin->isOpen = false;
+    }
+
+    player.gold += sleepReport.totalEarned;
+    sleepReport.currentGold = player.gold;
+
+    // Закрываем любые окна
+    isInventoryOpen = false;
+    alchemy.isCauldronOpen = false;
+    alchemy.isTableOpen = false;
+    alchemy.showRecipes = false;
+    if (nearbyChest) nearbyChest->isOpen = false;
+
+    // Переходим в экран ночного сна и отчёта
+    gameState = GameState::Sleeping;
+    isSleepNextHovered = false;
+}
+
+void Game::wakeUpFromSleep()
+{
+    timeSystem.advanceDay(sleepReport.fullRest);
     world.updateGrowth();
 
-    if (fullRest)
+    // Автоматический полив грядок в дождливый день
+    if (timeSystem.isRaining)
+    {
+        for (int y = 0; y < World::HEIGHT; y++)
+        {
+            for (int x = 0; x < World::WIDTH; x++)
+            {
+                if (world.map[y][x].type == 1) // Вспаханная грядка
+                {
+                    world.map[y][x].watered = true;
+                }
+            }
+        }
+    }
+
+    // Обновление ежедневных заказов жителей
+    initDailyQuests(timeSystem.currentDay);
+
+    house.isInside = true;
+    player.shape.setPosition({ House::ROOM_X + 32.f + 16.f, House::ROOM_Y + 85.f + 10.f });
+
+    if (sleepReport.fullRest)
     {
         player.energy = player.maxEnergy;
         player.isExhausted = false;
@@ -141,18 +1172,64 @@ void Game::sleepInBed(bool fullRest)
     }
     else
     {
-        // Потеря сознания от усталости в 02:00
         player.energy = player.maxEnergy * 0.5f;
         player.isExhausted = false;
-        house.isInside = true;
-        player.shape.setPosition({ house.bedPos.x, house.bedPos.y + 20.f });
 
         FloatingText ft;
-        ft.text = "Вы потеряли сознание от усталости... (энергия 50%).";
+        ft.text = "Вы очнулись в кровати после обморока (энергия 50%).";
         ft.position = { player.shape.getPosition().x - 130.f, player.shape.getPosition().y - 40.f };
         ft.color = sf::Color(255, 110, 110);
         ft.timer = 3.0f;
         floatingTexts.push_back(ft);
+    }
+
+    if (timeSystem.isRaining)
+    {
+        FloatingText rft;
+        rft.text = "Сегодня идет дождь! Все грядки политы.";
+        rft.position = { player.shape.getPosition().x - 90.f, player.shape.getPosition().y - 15.f };
+        rft.color = sf::Color(140, 220, 255);
+        rft.timer = 3.0f;
+        floatingTexts.push_back(rft);
+    }
+
+    // Автоматическое сохранение прогресса в активный слот при пробуждении
+    SaveManager::saveGame(currentSaveSlot, player, inv, timeSystem, world, house, chests, furniture, alchemy);
+    refreshSaveSlots();
+
+    gameState = GameState::Playing;
+}
+
+void Game::handleSleepingEvents(const sf::Event& event)
+{
+    if (isTransitioningSleep || isTransitioningWake) return;
+
+    sf::Vector2i mpos = getMouseVirtualPixel();
+
+    if (const auto* mouseBtn = event.getIf<sf::Event::MouseButtonPressed>())
+    {
+        if (mouseBtn->button == sf::Mouse::Button::Left)
+        {
+            if (UI::getSleepReportNextButtonRect().contains(static_cast<sf::Vector2f>(mpos)))
+            {
+                sound.playCoin();
+                isTransitioningWake = true;
+                fadeTarget = 255.f;
+                return;
+            }
+        }
+    }
+    else if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>())
+    {
+        if (keyPressed->code == sf::Keyboard::Key::Space ||
+            keyPressed->code == sf::Keyboard::Key::Enter ||
+            keyPressed->code == sf::Keyboard::Key::E)
+        {
+            sound.playCoin();
+            isTransitioningWake = true;
+            fadeTarget = 255.f;
+            return;
+        }
     }
 }
 
@@ -185,17 +1262,81 @@ void Game::handleEvents()
             return;
         }
 
+        // Автоматическое сохранение пропорций (letterbox / pillarbox) при изменении размера окна
+        if (const auto* resized = event->getIf<sf::Event::Resized>())
+        {
+            updateLetterboxView(resized->size.x, resized->size.y);
+            continue;
+        }
+
+        // Обработка главного меню
+        if (gameState == GameState::MainMenu)
+        {
+            handleMenuEvents(*event);
+            continue;
+        }
+
+        // Обработка экрана загрузки
+        if (gameState == GameState::Loading)
+        {
+            handleLoadingEvents(*event);
+            continue;
+        }
+
+        // Обработка меню паузы
+        if (gameState == GameState::PauseMenu)
+        {
+            handlePauseEvents(*event);
+            continue;
+        }
+
+        // Обработка сна и отчёта о доходах
+        if (gameState == GameState::Sleeping)
+        {
+            handleSleepingEvents(*event);
+            continue;
+        }
+
+        // Обработка доски объявлений и заказов
+        if (isOrdersBoardOpen)
+        {
+            handleOrdersBoardEvents(*event);
+            continue;
+        }
+
+        // Блокировка управления во время затемнения экрана при переходе сна
+        if (isTransitioningSleep || isTransitioningWake)
+        {
+            continue;
+        }
+
         // --- КЛАВИАТУРА ---
         if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>())
         {
-            // Escape: закрыть открытые окна
+            // Escape: закрыть открытые окна или открыть меню паузы
             if (keyPressed->code == sf::Keyboard::Key::Escape)
             {
-                if (alchemy.showRecipes) alchemy.showRecipes = false;
+                if (isOrdersBoardOpen) isOrdersBoardOpen = false;
+                else if (alchemy.showRecipes) alchemy.showRecipes = false;
                 else if (alchemy.isCauldronOpen) alchemy.isCauldronOpen = false;
                 else if (alchemy.isTableOpen) alchemy.isTableOpen = false;
                 else if (nearbyChest && nearbyChest->isOpen) nearbyChest->isOpen = false;
                 else if (isInventoryOpen) isInventoryOpen = false;
+                else
+                {
+                    gameState = GameState::PauseMenu;
+                    hoveredPauseButton = -1;
+                    currentModal = MenuModal::None;
+                    refreshSaveSlots();
+                }
+                return;
+            }
+
+            // Быстрое сохранение на F5
+            if (keyPressed->code == sf::Keyboard::Key::F5)
+            {
+                saveCurrentGame(currentSaveSlot);
+                refreshSaveSlots();
                 return;
             }
 
@@ -236,6 +1377,11 @@ void Game::handleEvents()
             {
                 if (player.isActing) return;
 
+                if (isOrdersBoardOpen)
+                {
+                    isOrdersBoardOpen = false;
+                    return;
+                }
                 if (alchemy.isCauldronOpen)
                 {
                     if (alchemy.showRecipes)
@@ -259,6 +1405,14 @@ void Game::handleEvents()
                 if (isInventoryOpen)
                 {
                     isInventoryOpen = false;
+                    return;
+                }
+
+                // Открытие доски заказов снаружи
+                if (nearOrdersBoard)
+                {
+                    isOrdersBoardOpen = true;
+                    sound.playClick();
                     return;
                 }
 
@@ -337,6 +1491,7 @@ void Game::handleEvents()
                         {
                             inv.removeItem("empty_flask", 1);
                             inv.addItem("water_flask", 1, 99);
+                            sound.playWater();
                             FloatingText ft;
                             ft.text = "+1 Флакон с чистой водой";
                             ft.position = { ppos.x - 20.f, ppos.y - 25.f };
@@ -349,10 +1504,10 @@ void Game::handleEvents()
                 }
 
                 // 7. Анимация действий инструментами
-                if (activeItem.id == "hoe") { player.playAction(PlayerAction::Hoe); player.useEnergy(2.f); }
-                else if (activeItem.id == "watering_can") { player.playAction(PlayerAction::Water); player.useEnergy(1.f); }
-                else if (activeItem.id == "axe") { player.playAction(PlayerAction::Axe); player.useEnergy(2.f); }
-                else if (activeItem.id == "pickaxe") { player.playAction(PlayerAction::Pickaxe); player.useEnergy(2.f); }
+                if (activeItem.id == "hoe") { player.playAction(PlayerAction::Hoe); player.useEnergy(2.f); sound.playHoe(); }
+                else if (activeItem.id == "watering_can") { player.playAction(PlayerAction::Water); player.useEnergy(1.f); sound.playWater(); }
+                else if (activeItem.id == "axe") { player.playAction(PlayerAction::Axe); player.useEnergy(2.f); sound.playAxe(); }
+                else if (activeItem.id == "pickaxe") { player.playAction(PlayerAction::Pickaxe); player.useEnergy(2.f); sound.playPickaxe(); }
 
                 // Взаимодействие с миром (грядки, сорняки, деревья)
                 if (!house.isInside)
@@ -386,7 +1541,7 @@ void Game::handleEvents()
         {
             if (mousePressed->button == sf::Mouse::Button::Left)
             {
-                sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+                sf::Vector2i mousePixel = getMouseVirtualPixel();
                 float mx = static_cast<float>(mousePixel.x);
                 float my = static_cast<float>(mousePixel.y);
 
@@ -403,7 +1558,7 @@ void Game::handleEvents()
                         float by = winY + 35.f;
                         float cx = bx + 460.f - 36.f;
                         float cy = by + 12.f;
-                        if (isInside(mx, my, cx, cy, 26.f) || !isInside(mx, my, bx, by, 460.f))
+                        if (isInside(mx, my, cx, cy, 26.f) || !isInsideRect(mx, my, bx, by, 460.f, 410.f))
                         {
                             alchemy.showRecipes = false;
                             return;
@@ -422,7 +1577,7 @@ void Game::handleEvents()
                     // Кнопка "Рецепты [R]"
                     float recBtnX = winX + 510.f;
                     float recBtnY = winY + 16.f;
-                    if (isInside(mx, my, recBtnX, recBtnY, 145.f))
+                    if (isInsideRect(mx, my, recBtnX, recBtnY, 145.f, 34.f))
                     {
                         alchemy.showRecipes = !alchemy.showRecipes;
                         return;
@@ -432,7 +1587,8 @@ void Game::handleEvents()
                     float btnX = winX + 475.f;
                     float btnY = winY + 400.f;
                     float btnW = 160.f;
-                    if (isInside(mx, my, btnX, btnY, btnW) && !alchemy.isBrewing)
+                    float btnH = 42.f;
+                    if (isInsideRect(mx, my, btnX, btnY, btnW, btnH) && !alchemy.isBrewing)
                     {
                         std::string err;
                         if (!alchemy.tryStartBrewing(err))
@@ -443,6 +1599,10 @@ void Game::handleEvents()
                             ft.color = sf::Color(255, 120, 120);
                             ft.timer = 1.5f;
                             floatingTexts.push_back(ft);
+                        }
+                        else
+                        {
+                            sound.playBrew();
                         }
                         return;
                     }
@@ -458,6 +1618,7 @@ void Game::handleEvents()
                         {
                             inv.addItem(alchemy.cauldronBase.id, alchemy.cauldronBase.count, 99);
                             alchemy.cauldronBase = Item{};
+                            sound.playPop();
                         }
                         return;
                     }
@@ -476,6 +1637,7 @@ void Game::handleEvents()
                             {
                                 inv.addItem(alchemy.cauldronIngredients[i].id, alchemy.cauldronIngredients[i].count, 99);
                                 alchemy.cauldronIngredients[i] = Item{};
+                                sound.playPop();
                             }
                             return;
                         }
@@ -505,17 +1667,37 @@ void Game::handleEvents()
                                         {
                                             alchemy.cauldronBase = Item{ item.id, 1 };
                                             inv.removeItem(item.id, 1);
+                                            sound.playPop();
                                         }
                                     }
                                     else
                                     {
+                                        bool added = false;
                                         for (int i = 0; i < 6; i++)
                                         {
-                                            if (alchemy.cauldronIngredients[i].isEmpty())
+                                            if (!alchemy.cauldronIngredients[i].isEmpty() &&
+                                                alchemy.cauldronIngredients[i].id == item.id &&
+                                                alchemy.cauldronIngredients[i].count < 99)
                                             {
-                                                alchemy.cauldronIngredients[i] = Item{ item.id, 1 };
+                                                alchemy.cauldronIngredients[i].count++;
                                                 inv.removeItem(item.id, 1);
+                                                sound.playPop();
+                                                added = true;
                                                 break;
+                                            }
+                                        }
+                                        if (!added)
+                                        {
+                                            for (int i = 0; i < 6; i++)
+                                            {
+                                                if (alchemy.cauldronIngredients[i].isEmpty())
+                                                {
+                                                    alchemy.cauldronIngredients[i] = Item{ item.id, 1 };
+                                                    inv.removeItem(item.id, 1);
+                                                    sound.playPop();
+                                                    added = true;
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
@@ -571,8 +1753,60 @@ void Game::handleEvents()
                     // Кнопка "Перетереть"
                     float btnX = rightCenterX - 90.f;
                     float btnY = winY + 330.f;
-                    if (isInside(mx, my, btnX, btnY, 180.f) && alchemy.canGrind() && !alchemy.isGrinding)
+                    float btnW = 180.f;
+                    float btnH = 44.f;
+                    if (isInsideRect(mx, my, btnX, btnY, btnW, btnH))
                     {
+                        if (alchemy.isGrinding) return;
+
+                        if (alchemy.mortarInput.isEmpty())
+                        {
+                            FloatingText ft;
+                            ft.text = "Положите сырьё в ячейку слева!";
+                            ft.position = { btnX - 10.f, btnY - 30.f };
+                            ft.color = sf::Color(255, 120, 120);
+                            ft.timer = 1.5f;
+                            floatingTexts.push_back(ft);
+                            return;
+                        }
+
+                        std::string resId = alchemy.getGrindResultId();
+                        if (resId.empty())
+                        {
+                            FloatingText ft;
+                            ft.text = "Этот предмет нельзя перетереть!";
+                            ft.position = { btnX - 10.f, btnY - 30.f };
+                            ft.color = sf::Color(255, 120, 120);
+                            ft.timer = 1.5f;
+                            floatingTexts.push_back(ft);
+                            return;
+                        }
+
+                        if (!alchemy.mortarOutput.isEmpty())
+                        {
+                            if (alchemy.mortarOutput.id != resId)
+                            {
+                                FloatingText ft;
+                                ft.text = "Заберите другой порошок из ячейки!";
+                                ft.position = { btnX - 25.f, btnY - 30.f };
+                                ft.color = sf::Color(255, 120, 120);
+                                ft.timer = 1.8f;
+                                floatingTexts.push_back(ft);
+                                sound.playPop();
+                                return;
+                            }
+                            if (alchemy.mortarOutput.count >= 99)
+                            {
+                                FloatingText ft;
+                                ft.text = "Ячейка порошка переполнена!";
+                                ft.position = { btnX - 10.f, btnY - 30.f };
+                                ft.color = sf::Color(255, 120, 120);
+                                ft.timer = 1.8f;
+                                floatingTexts.push_back(ft);
+                                return;
+                            }
+                        }
+
                         alchemy.startGrinding();
                         return;
                     }
@@ -626,6 +1860,7 @@ void Game::handleEvents()
                         int tabIdx = static_cast<int>((mx - 225.f) / 105.f);
                         if (tabIdx >= 0 && tabIdx < 3)
                         {
+                            sound.playClick();
                             currentTab = static_cast<InventoryTab>(tabIdx);
                             return;
                         }
@@ -653,23 +1888,19 @@ void Game::handleEvents()
                     // Вкладка Крафта
                     if (currentTab == InventoryTab::Crafting)
                     {
-                        float startX = 235.f;
-                        float startY = 225.f;
-                        float rowW = 490.f;
-                        float itemH = 58.f;
-
-                        for (int r = 0; r < 4; r++)
+                        for (int r = 0; r < 7; r++)
                         {
-                            float y = startY + r * (itemH + 8.f);
-                            if (isInsideRect(mx, my, startX, y, rowW, itemH))
+                            sf::FloatRect rect = UI::getCraftingRecipeRect(r);
+                            if (rect.contains({ mx, my }))
                             {
                                 sf::Vector2f ppos = player.shape.getPosition();
-                                if (r == 0)
+                                if (r == 0) // Сундук
                                 {
                                     if (inv.countItem("wood") >= 20)
                                     {
                                         inv.removeItem("wood", 20);
                                         inv.addItem("chest", 1, 99);
+                                        sound.playPop();
                                         FloatingText ft;
                                         ft.text = "+1 Сундук создан!";
                                         ft.position = ppos;
@@ -687,13 +1918,14 @@ void Game::handleEvents()
                                         floatingTexts.push_back(ft);
                                     }
                                 }
-                                else if (r == 1)
+                                else if (r == 1) // Стол алхимика
                                 {
                                     if (inv.countItem("wood") >= 15 && inv.countItem("stone") >= 10)
                                     {
                                         inv.removeItem("wood", 15);
                                         inv.removeItem("stone", 10);
                                         inv.addItem("alchemist_table", 1, 99);
+                                        sound.playPop();
                                         FloatingText ft;
                                         ft.text = "+1 Стол алхимика создан!";
                                         ft.position = ppos;
@@ -711,12 +1943,87 @@ void Game::handleEvents()
                                         floatingTexts.push_back(ft);
                                     }
                                 }
-                                else if (r == 2)
+                                else if (r == 2) // Алхимический котел
+                                {
+                                    if (inv.countItem("stone") >= 15 && inv.countItem("wood") >= 5)
+                                    {
+                                        inv.removeItem("stone", 15);
+                                        inv.removeItem("wood", 5);
+                                        inv.addItem("cauldron", 1, 99);
+                                        sound.playPop();
+                                        FloatingText ft;
+                                        ft.text = "+1 Алхимический котел создан!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(140, 255, 180);
+                                        ft.timer = 1.5f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                    else
+                                    {
+                                        FloatingText ft;
+                                        ft.text = "Нужно 15 Камня и 5 Дерева!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 100, 100);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                }
+                                else if (r == 3) // Уютная кровать
+                                {
+                                    if (inv.countItem("wood") >= 25 && inv.countItem("fiber") >= 10)
+                                    {
+                                        inv.removeItem("wood", 25);
+                                        inv.removeItem("fiber", 10);
+                                        inv.addItem("bed", 1, 99);
+                                        sound.playPop();
+                                        FloatingText ft;
+                                        ft.text = "+1 Кровать создана!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 200, 140);
+                                        ft.timer = 1.5f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                    else
+                                    {
+                                        FloatingText ft;
+                                        ft.text = "Нужно 25 Дерева и 10 Волокна!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 100, 100);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                }
+                                else if (r == 4) // Мягкий ковер
+                                {
+                                    if (inv.countItem("fiber") >= 12)
+                                    {
+                                        inv.removeItem("fiber", 12);
+                                        inv.addItem("carpet", 1, 99);
+                                        sound.playPop();
+                                        FloatingText ft;
+                                        ft.text = "+1 Ковер создан!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(200, 180, 255);
+                                        ft.timer = 1.5f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                    else
+                                    {
+                                        FloatingText ft;
+                                        ft.text = "Нужно 12 Волокна!";
+                                        ft.position = ppos;
+                                        ft.color = sf::Color(255, 100, 100);
+                                        ft.timer = 1.3f;
+                                        floatingTexts.push_back(ft);
+                                    }
+                                }
+                                else if (r == 5) // Пустой флакон
                                 {
                                     if (inv.countItem("stone") >= 1)
                                     {
                                         inv.removeItem("stone", 1);
                                         inv.addItem("empty_flask", 1, 99);
+                                        sound.playPop();
                                         FloatingText ft;
                                         ft.text = "+1 Пустой флакон создан!";
                                         ft.position = ppos;
@@ -734,12 +2041,13 @@ void Game::handleEvents()
                                         floatingTexts.push_back(ft);
                                     }
                                 }
-                                else if (r == 3)
+                                else if (r == 6) // Семена
                                 {
                                     if (inv.countItem("berry") >= 1)
                                     {
                                         inv.removeItem("berry", 1);
                                         inv.addItem("seeds", 2, 99);
+                                        sound.playPop();
                                         FloatingText ft;
                                         ft.text = "+2 Семени получено!";
                                         ft.position = ppos;
@@ -816,10 +2124,10 @@ void Game::handleEvents()
                 }
                 else if (!alchemy.isCauldronOpen && !alchemy.isTableOpen)
                 {
-                    // Клик мыши по ячейке хотбара делает её активной
+                    // Клик мыши по ячейке хотбара делает её активной (всегда в виртуальных координатах)
                     float totalHotbarWidth = UI::HOTBAR_SLOTS * UI::SLOT_SIZE + (UI::HOTBAR_SLOTS + 1) * UI::SLOT_PADDING;
-                    float hotbarX = (static_cast<float>(window.getSize().x) - totalHotbarWidth) / 2.f;
-                    float hotbarY = static_cast<float>(window.getSize().y) - UI::SLOT_SIZE - 20.f;
+                    float hotbarX = (VIRTUAL_WIDTH - totalHotbarWidth) / 2.f;
+                    float hotbarY = VIRTUAL_HEIGHT - UI::SLOT_SIZE - 20.f;
 
                     bool clickedHotbar = false;
                     for (int i = 0; i < UI::HOTBAR_SLOTS; i++)
@@ -875,7 +2183,7 @@ void Game::handleEvents()
             // ПКМ: Подробный осмотр предмета или употребление зелий/ягод
             else if (mousePressed->button == sf::Mouse::Button::Right)
             {
-                sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+                sf::Vector2i mousePixel = getMouseVirtualPixel();
                 float mx = static_cast<float>(mousePixel.x);
                 float my = static_cast<float>(mousePixel.y);
 
@@ -990,10 +2298,10 @@ void Game::handleEvents()
                     return;
                 }
 
-                // 4. Проверяем клик ПКМ по ячейке хотбара на главном экране
+                // 4. Проверяем клик ПКМ по ячейке хотбара на главном экране (в виртуальных координатах)
                 float totalHotbarWidth = UI::HOTBAR_SLOTS * UI::SLOT_SIZE + (UI::HOTBAR_SLOTS + 1) * UI::SLOT_PADDING;
-                float hotbarX = (static_cast<float>(window.getSize().x) - totalHotbarWidth) / 2.f;
-                float hotbarY = static_cast<float>(window.getSize().y) - UI::SLOT_SIZE - 20.f;
+                float hotbarX = (VIRTUAL_WIDTH - totalHotbarWidth) / 2.f;
+                float hotbarY = VIRTUAL_HEIGHT - UI::SLOT_SIZE - 20.f;
 
                 for (int i = 0; i < UI::HOTBAR_SLOTS; i++)
                 {
@@ -1103,7 +2411,7 @@ void Game::handleEvents()
             }
             if (mouseReleased->button == sf::Mouse::Button::Left && isDragging)
             {
-                sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+                sf::Vector2i mousePixel = getMouseVirtualPixel();
                 float mx = static_cast<float>(mousePixel.x);
                 float my = static_cast<float>(mousePixel.y);
                 bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
@@ -1152,6 +2460,29 @@ void Game::handleEvents()
                     else
                     {
                         // Из инвентаря в сундук
+                        if (nearbyChest->type == "shipping_bin")
+                        {
+                            const ItemData* itmData = itemDB.find(draggedItem.id);
+                            if (draggedItem.id == "hoe" || draggedItem.id == "watering_can" || draggedItem.id == "axe" || draggedItem.id == "pickaxe" ||
+                                (itmData && (itmData->isTool || itmData->sellPrice <= 0)))
+                            {
+                                inv.setSlot(draggedFromSlot, draggedItem);
+                                isDragging = false;
+                                draggedItem = Item{};
+                                draggedFromSlot = -1;
+                                draggedFromChest = false;
+
+                                FloatingText ft;
+                                ft.text = "Инструменты нельзя продавать! Они нужны для работы.";
+                                ft.position = player.shape.getPosition();
+                                ft.color = sf::Color(255, 120, 120);
+                                ft.timer = 1.8f;
+                                floatingTexts.push_back(ft);
+                                sound.playPop();
+                                return;
+                            }
+                        }
+
                         if (existing.isEmpty())
                         {
                             nearbyChest->inventory.setSlot(targetChestSlot, draggedItem);
@@ -1325,6 +2656,68 @@ void Game::triggerActiveSlotNotification()
 // ============================================
 void Game::update(float dt)
 {
+    // Синхронизация громкости музыки и аудио-системы
+    sound.update();
+    sound.setMusicVolume(static_cast<float>(settings.musicVolume));
+
+    // Обновление плавного перехода экрана (Fade in / Fade out)
+    if (fadeAlpha < fadeTarget)
+    {
+        fadeAlpha = std::min(fadeAlpha + fadeSpeed * dt, fadeTarget);
+    }
+    else if (fadeAlpha > fadeTarget)
+    {
+        fadeAlpha = std::max(fadeAlpha - fadeSpeed * dt, fadeTarget);
+    }
+
+    if (isTransitioningSleep && fadeAlpha >= 254.f)
+    {
+        isTransitioningSleep = false;
+        triggerSleep(sleepReport.fullRest);
+        fadeTarget = 0.f; // плавно осветляем экран отчёта о продажах
+    }
+    else if (isTransitioningWake && fadeAlpha >= 254.f)
+    {
+        isTransitioningWake = false;
+        wakeUpFromSleep();
+        fadeTarget = 0.f; // плавно осветляем экран пробуждения в новом дне
+    }
+
+    if (gameState == GameState::MainMenu)
+    {
+        updateMenu(dt);
+        return;
+    }
+
+    if (gameState == GameState::Loading)
+    {
+        updateLoading(dt);
+        return;
+    }
+
+    if (gameState == GameState::PauseMenu)
+    {
+        sf::Vector2i mpos = getMouseVirtualPixel();
+        hoveredPauseButton = -1;
+        for (int i = 0; i < 6; i++)
+        {
+            if (UI::getPauseMenuButtonRect(i).contains(static_cast<sf::Vector2f>(mpos)))
+            {
+                hoveredPauseButton = i;
+                break;
+            }
+        }
+        return;
+    }
+
+    if (gameState == GameState::Sleeping)
+    {
+        menuAnimTime += dt;
+        sf::Vector2i mpos = getMouseVirtualPixel();
+        isSleepNextHovered = UI::getSleepReportNextButtonRect().contains(static_cast<sf::Vector2f>(mpos));
+        return;
+    }
+
     // 1. Время и суточный цикл
     timeSystem.update(dt);
 
@@ -1341,6 +2734,7 @@ void Game::update(float dt)
         if (alchemy.brewTimer >= AlchemySystem::BREW_DURATION)
         {
             BrewResult res = alchemy.finishBrewing();
+            sound.playBrew();
             FloatingText ft;
             ft.text = res.message;
             ft.position = { 500.f, 250.f };
@@ -1387,7 +2781,7 @@ void Game::update(float dt)
     }
 
     // 5. Перемещение игрока
-    if (!isInventoryOpen && !alchemy.isCauldronOpen && !alchemy.isTableOpen && !(nearbyChest && nearbyChest->isOpen))
+    if (!isInventoryOpen && !alchemy.isCauldronOpen && !alchemy.isTableOpen && !(nearbyChest && nearbyChest->isOpen) && !isTransitioningSleep && !isTransitioningWake)
     {
         std::vector<sf::FloatRect> obstacles;
         if (house.isInside)
@@ -1427,6 +2821,8 @@ void Game::update(float dt)
                         obstacles.push_back(obs);
                 }
             }
+            // Доска объявлений снаружи (Tile 15, 10 -> { 480.f, 320.f }, ровно 1 тайл)
+            obstacles.push_back(sf::FloatRect({ 480.f, 320.f }, { 32.f, 32.f }));
         }
         float winW = static_cast<float>(window.getSize().x);
         float winH = static_cast<float>(window.getSize().y);
@@ -1474,6 +2870,7 @@ void Game::update(float dt)
                 ft.timer = 1.2f;
                 floatingTexts.push_back(ft);
 
+                sound.playPop();
                 it = droppedItems.erase(it);
             }
             else
@@ -1487,10 +2884,11 @@ void Game::update(float dt)
     Chest* prevNearby = nearbyChest;
     nearbyChest = nullptr;
     nearbyFurnitureIdx = -1;
+    nearOrdersBoard = false;
     playerPrompt.clear();
 
     bool anyModalOpen = isInventoryOpen || (prevNearby != nullptr && prevNearby->isOpen) ||
-                        alchemy.isCauldronOpen || alchemy.isTableOpen;
+                        alchemy.isCauldronOpen || alchemy.isTableOpen || isOrdersBoardOpen;
     if (anyModalOpen)
     {
         if (prevNearby != nullptr && prevNearby->isOpen)
@@ -1504,33 +2902,47 @@ void Game::update(float dt)
     float pcx = ppos.x + Player::SIZE / 2.f;
     float pcy = ppos.y + Player::SIZE / 2.f;
 
-    // Клетка и зона строго перед персонажем (по направлению взгляда)
+    // Тайл строго перед персонажем (по направлению взгляда)
     int ptx = static_cast<int>(pcx / 32.f);
     int pty = static_cast<int>(pcy / 32.f);
-    int frontTx = ptx + player.dirX;
-    int frontTy = pty + player.dirY;
-    sf::FloatRect frontTile({ frontTx * 32.f, frontTy * 32.f }, { 32.f, 32.f });
-    sf::FloatRect frontCheckArea({ pcx - 14.f + player.dirX * 22.f, pcy - 14.f + player.dirY * 22.f }, { 28.f, 28.f });
+    int targetTx = ptx + player.dirX;
+    int targetTy = pty + player.dirY;
+    sf::FloatRect targetTile({ targetTx * 32.f, targetTy * 32.f }, { 32.f, 32.f });
 
     const Item& activeItem = inv.getSlot(activeSlot);
     bool hasTool = (activeItem.id == "axe" || activeItem.id == "pickaxe");
 
-    // Сундуки в текущей локации (взаимодействие только если стоим перед сундуком и смотрим на него)
-    for (auto& chest : chests)
+    // 1. Проверка доски заказов снаружи (Tile 15, 10 -> { 480.f, 320.f })
+    if (!house.isInside && targetTx == 15 && targetTy == 10)
     {
-        if (chest.isInside == house.isInside)
-        {
-            sf::FloatRect cBounds(chest.position, { 32.f, 32.f });
-            float cx = chest.position.x + 16.f;
-            float cy = chest.position.y + 16.f;
-            float dot = (cx - pcx) * player.dirX + (cy - pcy) * player.dirY;
+        nearOrdersBoard = true;
+        playerPrompt = "[E] Доска объявлений и заказов";
+    }
 
-            if (dot > 2.f && (cBounds.findIntersection(frontTile).has_value() || cBounds.findIntersection(frontCheckArea).has_value()))
+    // 2. Сундуки в текущей локации (взаимодействие ТОЛЬКО если персонаж смотрит прямо на тайл сундука)
+    if (!nearOrdersBoard)
+    {
+        for (auto& chest : chests)
+        {
+            if (chest.isInside == house.isInside)
             {
-                nearbyChest = &chest;
-                if (hasTool) playerPrompt = "[E / ЛКМ] Забрать сундук";
-                else playerPrompt = "[E] Открыть сундук";
-                break;
+                int cTx = static_cast<int>(std::round(chest.position.x / 32.f));
+                int cTy = static_cast<int>(std::round(chest.position.y / 32.f));
+
+                if (targetTx == cTx && targetTy == cTy)
+                {
+                    nearbyChest = &chest;
+                    if (chest.type == "shipping_bin")
+                    {
+                        playerPrompt = "[E] Открыть ящик сбыта товаров";
+                    }
+                    else
+                    {
+                        if (hasTool) playerPrompt = "[E / ЛКМ] Забрать сундук";
+                        else playerPrompt = "[E] Открыть сундук";
+                    }
+                    break;
+                }
             }
         }
     }
@@ -1539,8 +2951,8 @@ void Game::update(float dt)
         prevNearby->isOpen = false;
     }
 
-    // Мебель в текущей локации (взаимодействие только если объект впереди по направлению взгляда)
-    if (nearbyChest == nullptr)
+    // 3. Мебель в текущей локации (взаимодействие ТОЛЬКО если целевой тайл взгляда попадает на объект)
+    if (nearbyChest == nullptr && !nearOrdersBoard)
     {
         for (size_t i = 0; i < furniture.size(); i++)
         {
@@ -1548,11 +2960,7 @@ void Game::update(float dt)
             if (f.isInside == house.isInside)
             {
                 sf::FloatRect b = f.getBounds();
-                float cx = b.position.x + b.size.x / 2.f;
-                float cy = b.position.y + b.size.y / 2.f;
-                float dot = (cx - pcx) * player.dirX + (cy - pcy) * player.dirY;
-
-                if (dot > 2.f && (b.findIntersection(frontTile).has_value() || b.findIntersection(frontCheckArea).has_value()))
+                if (b.findIntersection(targetTile).has_value())
                 {
                     nearbyFurnitureIdx = static_cast<int>(i);
                     if (hasTool)
@@ -1601,6 +3009,47 @@ void Game::update(float dt)
 // ============================================
 void Game::render()
 {
+    window.clear(sf::Color::Black);
+    window.setView(letterboxView);
+
+    if (gameState == GameState::MainMenu)
+    {
+        ui.drawMainMenu(window, menuAnimTime, hoveredMenuButton, currentModal, settings, cachedSaveSlots, isSaveMode, pendingDeleteSlot, menuParticles);
+        window.display();
+        return;
+    }
+
+    if (gameState == GameState::Loading)
+    {
+        window.clear(sf::Color::Black);
+        window.setView(letterboxView);
+        const std::vector<std::string> loadingTips = {
+            "Зажмите ПКМ на любом предмете в инвентаре для просмотра подробного описания и свойств.",
+            "Внутри дома можно свободно расставлять и переносить мебель с помощью сетки на 3 клетки.",
+            "Нажмите [R] возле котла, чтобы открыть алхимическую книгу рецептов зелий.",
+            "Зажимайте Shift + ЛКМ при открытом сундуке для быстрого перемещения предметов в сундук.",
+            "Ложитесь спать до 02:00 ночи, чтобы утром полностью восстановить энергию (100%)."
+        };
+        std::string tip = loadingTips[currentTipIndex % loadingTips.size()];
+        ui.drawLoadingScreen(window, loadingProgress, loadingStageText, tip, menuAnimTime);
+        window.display();
+        return;
+    }
+
+    if (gameState == GameState::Sleeping)
+    {
+        window.clear();
+        ui.drawSleepReport(window, sleepReport, menuAnimTime, isSleepNextHovered);
+        if (fadeAlpha > 0.5f)
+        {
+            sf::RectangleShape fadeRect({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+            fadeRect.setFillColor(sf::Color(0, 0, 0, static_cast<std::uint8_t>(std::clamp(fadeAlpha, 0.f, 255.f))));
+            window.draw(fadeRect);
+        }
+        window.display();
+        return;
+    }
+
     window.clear(sf::Color(20, 20, 25));
 
     sf::Vector2f ppos = player.shape.getPosition();
@@ -1663,13 +3112,133 @@ void Game::render()
         // ЛОКАЦИЯ 1: ВНЕШНИЙ МИР / УЛИЦА
         world.draw(window);
 
-        // 1. Сундуки и мебель сзади игрока (выше по Y)
+        auto drawNoticeBoard = [&](sf::RenderWindow& w) {
+            float bx = 480.f;
+            float by = 320.f;
+
+            // Две деревянные стойки
+            sf::RectangleShape postL({ 4.f, 30.f });
+            postL.setPosition({ bx + 4.f, by + 2.f });
+            postL.setFillColor(sf::Color(85, 48, 22));
+            w.draw(postL);
+
+            sf::RectangleShape postR({ 4.f, 30.f });
+            postR.setPosition({ bx + 24.f, by + 2.f });
+            postR.setFillColor(sf::Color(85, 48, 22));
+            w.draw(postR);
+
+            // Доска-щит
+            sf::RectangleShape board({ 30.f, 20.f });
+            board.setPosition({ bx + 1.f, by + 3.f });
+            board.setFillColor(sf::Color(160, 105, 55));
+            board.setOutlineColor(sf::Color(70, 38, 16));
+            board.setOutlineThickness(1.5f);
+            w.draw(board);
+
+            // Горизонтальный шов
+            sf::RectangleShape seam({ 28.f, 1.f });
+            seam.setPosition({ bx + 2.f, by + 13.f });
+            seam.setFillColor(sf::Color(115, 70, 32));
+            w.draw(seam);
+
+            // Верхний козырек
+            sf::RectangleShape roof({ 32.f, 4.f });
+            roof.setPosition({ bx, by });
+            roof.setFillColor(sf::Color(110, 60, 24));
+            roof.setOutlineColor(sf::Color(55, 28, 10));
+            roof.setOutlineThickness(1.f);
+            w.draw(roof);
+
+            // Листок объявления 1
+            sf::RectangleShape note1({ 9.f, 11.f });
+            note1.setPosition({ bx + 4.f, by + 7.f });
+            note1.setFillColor(sf::Color(245, 238, 210));
+            note1.setOutlineColor(sf::Color(170, 150, 115));
+            note1.setOutlineThickness(0.8f);
+            w.draw(note1);
+
+            sf::CircleShape pin1(1.2f);
+            pin1.setPosition({ bx + 7.5f, by + 6.5f });
+            pin1.setFillColor(sf::Color(220, 50, 50));
+            w.draw(pin1);
+
+            // Листок объявления 2
+            sf::RectangleShape note2({ 10.f, 12.f });
+            note2.setPosition({ bx + 16.f, by + 8.f });
+            note2.setFillColor(sf::Color(240, 230, 195));
+            note2.setOutlineColor(sf::Color(170, 150, 115));
+            note2.setOutlineThickness(0.8f);
+            w.draw(note2);
+
+            sf::CircleShape pin2(1.2f);
+            pin2.setPosition({ bx + 19.5f, by + 7.5f });
+            pin2.setFillColor(sf::Color(50, 120, 220));
+            w.draw(pin2);
+        };
+
+        // 1. Сундуки, доска и мебель сзади игрока (выше по Y)
+        if (320.f + 16.f <= ppos.y + 18.f)
+        {
+            drawNoticeBoard(window);
+        }
         for (const auto& chest : chests)
         {
             if (!chest.isInside && chest.position.y + 16.f <= ppos.y + 18.f)
             {
-                chestSprite->setPosition(chest.position);
-                window.draw(*chestSprite);
+                if (chest.type == "shipping_bin")
+                {
+                    sf::RectangleShape binBase({ 32.f, 22.f });
+                    binBase.setPosition({ chest.position.x, chest.position.y + 10.f });
+                    binBase.setFillColor(sf::Color(135, 80, 42));
+                    binBase.setOutlineColor(sf::Color(65, 38, 18));
+                    binBase.setOutlineThickness(1.5f);
+                    window.draw(binBase);
+
+                    sf::RectangleShape plank({ 32.f, 2.f });
+                    plank.setPosition({ chest.position.x, chest.position.y + 20.f });
+                    plank.setFillColor(sf::Color(95, 55, 25));
+                    window.draw(plank);
+
+                    sf::RectangleShape binLid({ 34.f, 10.f });
+                    binLid.setPosition({ chest.position.x - 1.f, chest.position.y + 2.f });
+                    binLid.setFillColor(sf::Color(165, 105, 55));
+                    binLid.setOutlineColor(sf::Color(80, 45, 20));
+                    binLid.setOutlineThickness(1.5f);
+                    window.draw(binLid);
+
+                    sf::RectangleShape bandL({ 4.f, 29.f });
+                    bandL.setPosition({ chest.position.x + 4.f, chest.position.y + 3.f });
+                    bandL.setFillColor(sf::Color(215, 175, 75));
+                    bandL.setOutlineColor(sf::Color(130, 95, 30));
+                    bandL.setOutlineThickness(1.f);
+                    window.draw(bandL);
+
+                    sf::RectangleShape bandR({ 4.f, 29.f });
+                    bandR.setPosition({ chest.position.x + 24.f, chest.position.y + 3.f });
+                    bandR.setFillColor(sf::Color(215, 175, 75));
+                    bandR.setOutlineColor(sf::Color(130, 95, 30));
+                    bandR.setOutlineThickness(1.f);
+                    window.draw(bandR);
+
+                    sf::CircleShape badge(6.f);
+                    badge.setPosition({ chest.position.x + 10.f, chest.position.y - 12.f });
+                    badge.setFillColor(sf::Color(255, 215, 30));
+                    badge.setOutlineColor(sf::Color(180, 130, 15));
+                    badge.setOutlineThickness(1.5f);
+                    window.draw(badge);
+
+                    sf::Text gTxt(ui.font);
+                    gTxt.setString("G");
+                    gTxt.setCharacterSize(10);
+                    gTxt.setFillColor(sf::Color(90, 50, 0));
+                    gTxt.setPosition({ chest.position.x + 13.5f, chest.position.y - 14.f });
+                    window.draw(gTxt);
+                }
+                else if (chestSprite)
+                {
+                    chestSprite->setPosition(chest.position);
+                    window.draw(*chestSprite);
+                }
             }
         }
         for (const auto& f : furniture)
@@ -1699,8 +3268,60 @@ void Game::render()
         {
             if (!chest.isInside && chest.position.y + 16.f > ppos.y + 18.f)
             {
-                chestSprite->setPosition(chest.position);
-                window.draw(*chestSprite);
+                if (chest.type == "shipping_bin")
+                {
+                    sf::RectangleShape binBase({ 32.f, 22.f });
+                    binBase.setPosition({ chest.position.x, chest.position.y + 10.f });
+                    binBase.setFillColor(sf::Color(135, 80, 42));
+                    binBase.setOutlineColor(sf::Color(65, 38, 18));
+                    binBase.setOutlineThickness(1.5f);
+                    window.draw(binBase);
+
+                    sf::RectangleShape plank({ 32.f, 2.f });
+                    plank.setPosition({ chest.position.x, chest.position.y + 20.f });
+                    plank.setFillColor(sf::Color(95, 55, 25));
+                    window.draw(plank);
+
+                    sf::RectangleShape binLid({ 34.f, 10.f });
+                    binLid.setPosition({ chest.position.x - 1.f, chest.position.y + 2.f });
+                    binLid.setFillColor(sf::Color(165, 105, 55));
+                    binLid.setOutlineColor(sf::Color(80, 45, 20));
+                    binLid.setOutlineThickness(1.5f);
+                    window.draw(binLid);
+
+                    sf::RectangleShape bandL({ 4.f, 29.f });
+                    bandL.setPosition({ chest.position.x + 4.f, chest.position.y + 3.f });
+                    bandL.setFillColor(sf::Color(215, 175, 75));
+                    bandL.setOutlineColor(sf::Color(130, 95, 30));
+                    bandL.setOutlineThickness(1.f);
+                    window.draw(bandL);
+
+                    sf::RectangleShape bandR({ 4.f, 29.f });
+                    bandR.setPosition({ chest.position.x + 24.f, chest.position.y + 3.f });
+                    bandR.setFillColor(sf::Color(215, 175, 75));
+                    bandR.setOutlineColor(sf::Color(130, 95, 30));
+                    bandR.setOutlineThickness(1.f);
+                    window.draw(bandR);
+
+                    sf::CircleShape badge(6.f);
+                    badge.setPosition({ chest.position.x + 10.f, chest.position.y - 12.f });
+                    badge.setFillColor(sf::Color(255, 215, 30));
+                    badge.setOutlineColor(sf::Color(180, 130, 15));
+                    badge.setOutlineThickness(1.5f);
+                    window.draw(badge);
+
+                    sf::Text gTxt(ui.font);
+                    gTxt.setString("G");
+                    gTxt.setCharacterSize(10);
+                    gTxt.setFillColor(sf::Color(90, 50, 0));
+                    gTxt.setPosition({ chest.position.x + 13.5f, chest.position.y - 14.f });
+                    window.draw(gTxt);
+                }
+                else if (chestSprite)
+                {
+                    chestSprite->setPosition(chest.position);
+                    window.draw(*chestSprite);
+                }
             }
         }
         for (const auto& f : furniture)
@@ -1709,6 +3330,10 @@ void Game::render()
             {
                 drawFurniturePiece(window, f);
             }
+        }
+        if (320.f + 16.f > ppos.y + 18.f)
+        {
+            drawNoticeBoard(window);
         }
 
         // Деревья
@@ -1732,7 +3357,7 @@ void Game::render()
 
     // Сетка и зона установки предметов при удержании мебели в руках
     bool anyModalOpen = isInventoryOpen || (nearbyChest != nullptr && nearbyChest->isOpen) ||
-                        alchemy.isCauldronOpen || alchemy.isTableOpen;
+                        alchemy.isCauldronOpen || alchemy.isTableOpen || isOrdersBoardOpen;
     if (!anyModalOpen)
     {
         drawPlacementGrid(window);
@@ -1754,14 +3379,14 @@ void Game::render()
     timeSystem.drawFade(window);
 
     // 5. HUD: день, часы (красные в полночь), золото
-    ui.drawHUD(window, timeSystem.currentDay, timeSystem.getTimeString(), timeSystem.isCurfew(), timeSystem.getHour());
+    ui.drawHUD(window, timeSystem.currentDay, timeSystem.getTimeString(), timeSystem.isCurfew(), timeSystem.getHour(), player.gold);
 
     // 6. Шкала выносливости (энергия)
     ui.drawEnergyBar(window, player.energy, player.maxEnergy);
 
     // 7. Хотбар
     bool chestOpen = (nearbyChest != nullptr && nearbyChest->isOpen);
-    if (!isInventoryOpen && !chestOpen && !alchemy.isCauldronOpen && !alchemy.isTableOpen)
+    if (!isInventoryOpen && !chestOpen && !alchemy.isCauldronOpen && !alchemy.isTableOpen && !isOrdersBoardOpen)
     {
         ui.drawHotbar(window, inv, activeSlot, itemDB);
     }
@@ -1784,13 +3409,20 @@ void Game::render()
     // 11. Окно сундука
     if (chestOpen)
     {
-        ui.drawChest(window, nearbyChest->inventory, nearbyChest->slotCount, true, itemDB);
+        std::string cTitle = (nearbyChest->type == "shipping_bin") ? "Ящик сбыта товаров (продажа во время сна)" : "Сундук";
+        ui.drawChest(window, nearbyChest->inventory, nearbyChest->slotCount, true, itemDB, cTitle);
+    }
+
+    // 12. Доска объявлений и лавка припасов
+    if (isOrdersBoardOpen)
+    {
+        ui.drawOrdersBoardModal(window, ordersBoardTab, dailyQuests, shopCatalog, inv, player.gold, itemDB, getMouseVirtualCoords());
     }
 
     // 12. Перетаскиваемый предмет
     if (isDragging)
     {
-        sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
+        sf::Vector2i mousePixel = getMouseVirtualPixel();
         ui.drawItemIcon(window,
             static_cast<float>(mousePixel.x) - UI::SLOT_SIZE / 2.f,
             static_cast<float>(mousePixel.y) - UI::SLOT_SIZE / 2.f,
@@ -1830,7 +3462,7 @@ void Game::render()
     // 14. Тултип предмета под курсором
     if (!ui.hoveredItemName.empty())
     {
-        ui.drawTooltip(window, sf::Mouse::getPosition(window), ui.hoveredItemName);
+        ui.drawTooltip(window, getMouseVirtualPixel(), ui.hoveredItemName);
         ui.hoveredItemName = "";
     }
 
@@ -1840,8 +3472,22 @@ void Game::render()
         const ItemData* d = itemDB.find(inspectedItemId);
         if (d)
         {
-            ui.drawDetailedItemCard(window, sf::Mouse::getPosition(window), *d);
+            ui.drawDetailedItemCard(window, getMouseVirtualPixel(), *d);
         }
+    }
+
+    // 16. Меню паузы поверх игры
+    if (gameState == GameState::PauseMenu)
+    {
+        ui.drawPauseMenu(window, hoveredPauseButton, currentModal, settings, cachedSaveSlots, isSaveMode, pendingDeleteSlot);
+    }
+
+    // 17. Плавное затемнение экрана (Fade transition)
+    if (fadeAlpha > 0.5f)
+    {
+        sf::RectangleShape fadeRect({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
+        fadeRect.setFillColor(sf::Color(0, 0, 0, static_cast<std::uint8_t>(std::clamp(fadeAlpha, 0.f, 255.f))));
+        window.draw(fadeRect);
     }
 
     window.display();
@@ -2175,7 +3821,7 @@ void Game::drawPlacementGrid(sf::RenderWindow& window)
     }
 
     // 2. Индикатор под курсором мыши
-    sf::Vector2i mousePix = sf::Mouse::getPosition(window);
+    sf::Vector2i mousePix = getMouseVirtualPixel();
     int htx = mousePix.x / 32;
     int hty = mousePix.y / 32;
 
@@ -2281,6 +3927,17 @@ bool Game::tryPickupFurniture()
             if (bounds.contains(checkPos) || (bounds.position.x - 16.f <= checkPos.x && checkPos.x <= bounds.position.x + bounds.size.x + 16.f &&
                                               bounds.position.y - 16.f <= checkPos.y && checkPos.y <= bounds.position.y + bounds.size.y + 16.f))
             {
+                if (c.type == "shipping_bin")
+                {
+                    FloatingText ft;
+                    ft.text = "Ящик сбыта товаров закреплён на ферме!";
+                    ft.position = ppos;
+                    ft.color = sf::Color(255, 140, 140);
+                    ft.timer = 1.5f;
+                    floatingTexts.push_back(ft);
+                    return true;
+                }
+
                 // Сундук можно забрать только если он пустой
                 bool hasItems = false;
                 for (int s = 0; s < c.slotCount; s++)
@@ -2355,6 +4012,23 @@ void Game::transferToChest(Inventory& srcInv, int srcSlot, Chest& chest, const I
 {
     Item src = srcInv.getSlot(srcSlot);
     if (src.isEmpty()) return;
+
+    if (chest.type == "shipping_bin")
+    {
+        const ItemData* itmData = itemDB.find(src.id);
+        if (src.id == "hoe" || src.id == "watering_can" || src.id == "axe" || src.id == "pickaxe" ||
+            (itmData && (itmData->isTool || itmData->sellPrice <= 0)))
+        {
+            FloatingText ft;
+            ft.text = "Инструменты нельзя продавать! Они нужны для работы.";
+            ft.position = player.shape.getPosition();
+            ft.color = sf::Color(255, 120, 120);
+            ft.timer = 1.8f;
+            floatingTexts.push_back(ft);
+            return;
+        }
+    }
+
     int maxStack = 99;
     const ItemData* d = itemDB.find(src.id);
     if (d && d->maxStack > 0) maxStack = d->maxStack;
