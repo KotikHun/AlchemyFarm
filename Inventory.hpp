@@ -4,6 +4,12 @@
 #include <string>
 #include "Item.hpp"
 
+enum class InventoryTab {
+    Backpack,
+    Crafting,
+    Journal
+};
+
 // ============================================
 // ИНВЕНТАРЬ ИГРОКА
 // ============================================

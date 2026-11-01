@@ -177,6 +177,11 @@
     <ClCompile Include="AlchemyUI.cpp" />
     <ClCompile Include="OrdersBoardUI.cpp" />
     <ClCompile Include="SleepReportUI.cpp" />
+    <ClCompile Include="DayNightCycle.cpp" />
+    <ClCompile Include="AlchemyController.cpp" />
+    <ClCompile Include="StorageSystem.cpp" />
+    <ClCompile Include="InventoryController.cpp" />
+    <ClCompile Include="PlayerInteractionController.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inventory.hpp" />
@@ -202,6 +207,11 @@
     <ClInclude Include="OrdersBoardUI.hpp" />
     <ClInclude Include="SleepReportUI.hpp" />
     <ClInclude Include="UIUtils.hpp" />
+    <ClInclude Include="DayNightCycle.hpp" />
+    <ClInclude Include="AlchemyController.hpp" />
+    <ClInclude Include="StorageSystem.hpp" />
+    <ClInclude Include="InventoryController.hpp" />
+    <ClInclude Include="PlayerInteractionController.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

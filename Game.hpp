@@ -18,13 +18,14 @@
 #include "WeatherSystem.hpp"
 #include "QuestManager.hpp"
 #include "PlacementSystem.hpp"
+#include "DayNightCycle.hpp"
+#include "AlchemyController.hpp"
+#include "StorageSystem.hpp"
+#include "InventoryController.hpp"
+#include "PlayerInteractionController.hpp"
 #include <vector>
 
-enum class InventoryTab {
-    Backpack,
-    Crafting,
-    Journal
-};
+// InventoryTab is in Inventory.hpp
 
 enum class GameState {
     MainMenu,
