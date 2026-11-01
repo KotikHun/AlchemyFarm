@@ -15,6 +15,9 @@
 #include "SoundManager.hpp"
 #include "Furniture.hpp"
 #include "SaveManager.hpp"
+#include "WeatherSystem.hpp"
+#include "QuestManager.hpp"
+#include "PlacementSystem.hpp"
 #include <vector>
 
 enum class InventoryTab {
@@ -81,6 +84,9 @@ struct Game {
     House house;
     AlchemySystem alchemy;
     SoundManager sound;
+    WeatherSystem weather;
+    QuestManager quests;
+    PlacementSystem placement;
 
     // Активный слот хотбара (0-8)
     int activeSlot = 0;
@@ -100,23 +106,12 @@ struct Game {
     std::vector<Chest> chests;
     std::vector<Furniture> furniture;
 
-    sf::Texture chestTexture;
-    std::unique_ptr<sf::Sprite> chestSprite;
-
-    sf::Texture bedTexture;
-    std::unique_ptr<sf::Sprite> bedSprite;
-
-    sf::Texture tableTexture;
-    std::unique_ptr<sf::Sprite> tableSprite;
-
-    sf::Texture cauldronAnimTexture;
-    std::unique_ptr<sf::Sprite> cauldronAnimSprite;
-
-    sf::Texture carpetTexture;
-    std::unique_ptr<sf::Sprite> carpetSprite;
-
-    sf::Texture windowTexture;
-    std::unique_ptr<sf::Sprite> windowSprite;
+    std::unique_ptr<sf::Sprite>& chestSprite;
+    std::unique_ptr<sf::Sprite>& bedSprite;
+    std::unique_ptr<sf::Sprite>& tableSprite;
+    std::unique_ptr<sf::Sprite>& cauldronAnimSprite;
+    std::unique_ptr<sf::Sprite>& carpetSprite;
+    std::unique_ptr<sf::Sprite>& windowSprite;
 
     Chest* nearbyChest = nullptr;
     int nearbyFurnitureIdx = -1;
@@ -142,26 +137,22 @@ struct Game {
     sf::Vector2f getMouseVirtualCoords() const;
     sf::Vector2i getMouseVirtualPixel() const;
 
-    // Частицы дождя
-    struct RainDrop {
-        sf::Vector2f pos;
-        float speed = 520.f;
-        float length = 14.f;
-    };
-    std::vector<RainDrop> rainDrops;
-    void initRain();
-    void updateRain(float dt);
-    void drawRain(sf::RenderWindow& window);
+    // Погода и квесты (перенаправление в подсистемы)
+    std::vector<RainDrop>& rainDrops;
+    void initRain() { weather.init(); }
+    void updateRain(float dt) { weather.update(dt, timeSystem.isRaining); }
+    void drawRain(sf::RenderWindow& window) { weather.draw(window, timeSystem.isRaining, house.isInside, VIRTUAL_WIDTH, VIRTUAL_HEIGHT); }
 
-    // Доска объявлений (Заказы жителей и лавка)
-    std::vector<QuestRecord> dailyQuests;
-    std::vector<ShopCatalogItem> shopCatalog;
-    bool isOrdersBoardOpen = false;
-    int ordersBoardTab = 0; // 0 = Заказы, 1 = Лавка
-    bool nearOrdersBoard = false;
-    void initDailyQuests(int day);
-    void initShopCatalog();
-    void handleOrdersBoardEvents(const sf::Event& event);
+    std::vector<QuestRecord>& dailyQuests;
+    std::vector<ShopCatalogItem>& shopCatalog;
+    bool& isOrdersBoardOpen;
+    int& ordersBoardTab;
+    bool& nearOrdersBoard;
+    void initDailyQuests(int day) { quests.initDailyQuests(day); }
+    void initShopCatalog() { quests.initShopCatalog(); }
+    void handleOrdersBoardEvents(const sf::Event& event) {
+        quests.handleEvents(event, getMouseVirtualCoords(), inv, player, sound, floatingTexts);
+    }
 
     sf::Clock clock;
 
@@ -176,12 +167,25 @@ private:
     int getChestSlotUnderMouse(sf::Vector2i mousePos);
     void triggerActiveSlotNotification();
     void sleepInBed(bool fullRest);
-    bool isPlacementValid(const std::string& itemId, int tx, int ty, std::string* outReason = nullptr) const;
-    bool tryPlaceFurnitureAt(const std::string& itemId, int tx, int ty);
-    bool tryPlaceFurniture(const std::string& itemId);
-    bool tryPickupFurniture();
-    void drawPlacementGrid(sf::RenderWindow& window);
-    void drawFurniturePiece(sf::RenderWindow& window, const Furniture& f);
+    bool isPlacementValid(const std::string& itemId, int tx, int ty, std::string* outReason = nullptr) const {
+        return placement.isPlacementValid(itemId, tx, ty, house, world, player, chests, furniture, outReason);
+    }
+    bool tryPlaceFurnitureAt(const std::string& itemId, int tx, int ty) {
+        return placement.tryPlaceFurnitureAt(itemId, tx, ty, house, world, player, inv, chests, furniture, floatingTexts, itemDB);
+    }
+    bool tryPlaceFurniture(const std::string& itemId) {
+        return placement.tryPlaceFurniture(itemId, house, world, player, inv, chests, furniture, floatingTexts, itemDB);
+    }
+    bool tryPickupFurniture() {
+        return placement.tryPickupFurniture(house, player, inv, chests, furniture, floatingTexts, itemDB, nearbyChest, nearbyFurnitureIdx);
+    }
+    void drawPlacementGrid(sf::RenderWindow& window) {
+        placement.drawPlacementGrid(window, inv, activeSlot, player, house, world, chests, furniture, getMouseVirtualPixel());
+    }
+    void drawFurniturePiece(sf::RenderWindow& window, const Furniture& f) {
+        placement.drawFurniturePiece(window, f);
+    }
+
     void transferToChest(Inventory& srcInv, int srcSlot, Chest& chest, const ItemDatabase& itemDB);
     void transferToPlayer(Chest& chest, int chestSlot, Inventory& playerInv, const ItemDatabase& itemDB);
 

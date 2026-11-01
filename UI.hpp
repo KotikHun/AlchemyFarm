@@ -61,30 +61,9 @@ struct SleepReport {
 };
 
 // ============================================
-// ЗАКАЗЫ И ЛАВКА (КВЕСТЫ ЖИТЕЛЕЙ)
 // ============================================
-struct QuestRecord {
-    std::string id;
-    std::string clientName;
-    std::string title;
-    std::string description;
-    std::string targetItemId;
-    int targetCount = 1;
-    int rewardGold = 60;
-    std::string hint;
-    bool isCompleted = false;
-};
+#include "QuestManager.hpp"
 
-struct ShopCatalogItem {
-    std::string itemId;
-    std::string name;
-    int price = 10;
-    std::string desc;
-};
-
-// ============================================
-// ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ UTF-8 (РУССКИЙ ТЕКСТ)
-// ============================================
 inline sf::String toUtf8(const std::string& str) {
     return sf::String::fromUtf8(str.begin(), str.end());
 }

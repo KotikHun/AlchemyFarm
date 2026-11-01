@@ -170,6 +170,9 @@
     <ClCompile Include="AlchemySystem.cpp" />
     <ClCompile Include="SoundManager.cpp" />
     <ClCompile Include="SaveManager.cpp" />
+    <ClCompile Include="WeatherSystem.cpp" />
+    <ClCompile Include="QuestManager.cpp" />
+    <ClCompile Include="PlacementSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Inventory.hpp" />
@@ -187,6 +190,9 @@
     <ClInclude Include="AlchemySystem.hpp" />
     <ClInclude Include="SoundManager.hpp" />
     <ClInclude Include="SaveManager.hpp" />
+    <ClInclude Include="WeatherSystem.hpp" />
+    <ClInclude Include="QuestManager.hpp" />
+    <ClInclude Include="PlacementSystem.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
