@@ -190,6 +190,13 @@ void Game::startNewGame()
     chest.type = "wooden";
     chest.position = { 13 * 32.f, 10 * 32.f }; // { 416.f, 320.f }
     chest.isInside = false;
+    chest.inventory.addItem("chamomile", 20, 99);
+    chest.inventory.addItem("chamomile_powder", 10, 99);
+    chest.inventory.addItem("berry", 20, 99);
+    chest.inventory.addItem("berry_powder", 10, 99);
+    chest.inventory.addItem("water_flask", 10, 99);
+    chest.inventory.addItem("empty_flask", 10, 99);
+    chest.inventory.addItem("chamomile_seeds", 10, 99);
     chests.push_back(chest);
 
     // Ящик сбыта товаров (Shipping Bin) возле дома (Tile 12, 10)
@@ -873,6 +880,35 @@ void Game::handleEvents()
                     currentModal = MenuModal::None;
                     refreshSaveSlots();
                 }
+                return;
+            }
+
+            // Тестовая выдача зелий и ингредиентов на F1
+            if (keyPressed->code == sf::Keyboard::Key::F1)
+            {
+                inv.addItem("chamomile_decoction", 1, 10);
+                inv.addItem("chamomile_tea", 1, 10);
+                inv.addItem("chamomile_tincture", 1, 10);
+                inv.addItem("berry_juice", 1, 10);
+                inv.addItem("berry_decoction", 1, 10);
+                inv.addItem("berry_elixir", 1, 10);
+                inv.addItem("forest_infusion", 1, 10);
+                inv.addItem("tonic_infusion", 1, 10);
+                inv.addItem("grand_nectar", 1, 10);
+                inv.addItem("chamomile", 10, 99);
+                inv.addItem("chamomile_powder", 10, 99);
+                inv.addItem("berry", 10, 99);
+                inv.addItem("berry_powder", 10, 99);
+                inv.addItem("water_flask", 5, 99);
+                inv.addItem("empty_flask", 5, 99);
+
+                sound.playCoin();
+                FloatingText ft;
+                ft.text = "[Тест] Выданы все 9 зелий и ингредиенты в инвентарь!";
+                ft.position = { player.shape.getPosition().x - 140.f, player.shape.getPosition().y - 40.f };
+                ft.color = sf::Color(255, 235, 100);
+                ft.timer = 3.0f;
+                floatingTexts.push_back(ft);
                 return;
             }
 
