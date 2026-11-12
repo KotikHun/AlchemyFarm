@@ -180,6 +180,7 @@ bool SaveManager::saveGame(int slot,
                     { "y", y },
                     { "t", t.type },
                     { "s", t.plantStage },
+                    { "c", t.cropType },
                     { "w", t.watered },
                     { "d", t.daysGrown },
                     { "v", t.variant }
@@ -386,6 +387,7 @@ bool SaveManager::loadGame(int slot,
                     Tile& t = world.map[y][x];
                     t.type = tj.value("t", 0);
                     t.plantStage = tj.value("s", 0);
+                    t.cropType = tj.value("c", 0);
                     t.watered = tj.value("w", false);
                     t.daysGrown = tj.value("d", 0);
                     t.variant = tj.value("v", 0);
@@ -477,7 +479,19 @@ bool SaveManager::loadGame(int slot,
                 std::vector<std::string> unlocked = aj["unlocked"].get<std::vector<std::string>>();
                 for (auto& r : alchemy.recipes)
                 {
-                    r.discovered = (std::find(unlocked.begin(), unlocked.end(), r.resultId) != unlocked.end());
+                    if (r.resultId == "chamomile_decoction" && r.name == "Ромашковый отвар")
+                    {
+                        r.discovered = true;
+                    }
+                    else if (r.resultId == "berry_juice" && r.name == "Ягодный морс")
+                    {
+                        r.discovered = true;
+                    }
+                    else
+                    {
+                        r.discovered = (std::find(unlocked.begin(), unlocked.end(), r.resultId) != unlocked.end() ||
+                                        std::find(unlocked.begin(), unlocked.end(), r.name) != unlocked.end());
+                    }
                 }
             }
             if (aj.contains("cauldronBase"))

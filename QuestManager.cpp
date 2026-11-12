@@ -25,18 +25,18 @@ void QuestManager::initDailyQuests(int day)
         q1.targetItemId = "berry";
         q1.targetCount = 3;
         q1.rewardGold = 70;
-        q1.hint = "Подсказка: Разотрите ягоды в ступке алхимика в порошок.";
+        q1.hint = "Подсказка: Соберите созревшие ягоды на грядках фермы.";
         dailyQuests.push_back(q1);
 
         QuestRecord q2;
-        q2.id = "q_water";
-        q2.clientName = "Кузнец Брок";
-        q2.title = "Родниковая вода";
-        q2.description = "Требуется: 1 Флакон с водой для закалки стали";
-        q2.targetItemId = "water_flask";
-        q2.targetCount = 1;
-        q2.rewardGold = 45;
-        q2.hint = "Подсказка: Возьмите флакон в руки и нажмите [E] у пруда.";
+        q2.id = "q_chamomile";
+        q2.clientName = "Лекарь Элиас";
+        q2.title = "Аптечная ромашка";
+        q2.description = "Требуется: 3 Ромашки для успокаивающего чая";
+        q2.targetItemId = "chamomile";
+        q2.targetCount = 3;
+        q2.rewardGold = 85;
+        q2.hint = "Подсказка: Посадите семена ромашки на политую грядку.";
         dailyQuests.push_back(q2);
 
         QuestRecord q3;
@@ -64,60 +64,60 @@ void QuestManager::initDailyQuests(int day)
         dailyQuests.push_back(q1);
 
         QuestRecord q2;
-        q2.id = "q_stone";
-        q2.clientName = "Каменщик Дарин";
-        q2.title = "Прочный камень";
-        q2.description = "Требуется: 4 Камня для укрепления фундамента";
-        q2.targetItemId = "stone";
-        q2.targetCount = 4;
-        q2.rewardGold = 65;
-        q2.hint = "Подсказка: Раскалывайте серые булыжники киркой.";
+        q2.id = "q_chamomile_powder";
+        q2.clientName = "Травница Элизабет";
+        q2.title = "Ромашковая пыльца";
+        q2.description = "Требуется: 2 Ромашковой пыльцы для мазей";
+        q2.targetItemId = "chamomile_powder";
+        q2.targetCount = 2;
+        q2.rewardGold = 140;
+        q2.hint = "Подсказка: Разотрите цветки ромашки в алхимической ступке.";
         dailyQuests.push_back(q2);
 
         QuestRecord q3;
-        q3.id = "q_energy";
+        q3.id = "q_decoction";
         q3.clientName = "Стражник Гарет";
-        q3.title = "Зелье бодрости";
-        q3.description = "Требуется: 1 Зелье энергии перед ночным дозором";
-        q3.targetItemId = "energy_potion";
+        q3.title = "Ромашковый отвар";
+        q3.description = "Требуется: 1 Ромашковый отвар перед ночным дозором";
+        q3.targetItemId = "chamomile_decoction";
         q3.targetCount = 1;
-        q3.rewardGold = 170;
-        q3.hint = "Подсказка: Сварите в котле воду + ягодный порошок.";
+        q3.rewardGold = 95;
+        q3.hint = "Подсказка: Сварите в котле 1 воду + 2 ромашки.";
         dailyQuests.push_back(q3);
     }
     else
     {
         QuestRecord q1;
-        q1.id = "q_herbal";
-        q1.clientName = "Ведьма Селена";
-        q1.title = "Травяная пудра";
-        q1.description = "Требуется: 2 Растительного порошка для зельеварения";
-        q1.targetItemId = "herbal_powder";
-        q1.targetCount = 2;
-        q1.rewardGold = 150;
-        q1.hint = "Подсказка: Измельчите листву дерева или сорняки в ступке.";
+        q1.id = "q_berry_juice";
+        q1.clientName = "Старейшина Гораций";
+        q1.title = "Ягодный морс";
+        q1.description = "Требуется: 1 Освежающий ягодный морс";
+        q1.targetItemId = "berry_juice";
+        q1.targetCount = 1;
+        q1.rewardGold = 85;
+        q1.hint = "Подсказка: Сварите в котле воду + 2 ягоды (или 1 порошок).";
         dailyQuests.push_back(q1);
 
         QuestRecord q2;
-        q2.id = "q_growth";
-        q2.clientName = "Садовник Оливер";
-        q2.title = "Зелье стимуляции роста";
-        q2.description = "Требуется: 1 Зелье роста для молодых саженцев";
-        q2.targetItemId = "growth_potion";
+        q2.id = "q_chamomile_tea";
+        q2.clientName = "Ведьма Селена";
+        q2.title = "Густой ромашковый чай";
+        q2.description = "Требуется: 1 Густой ромашковый чай для ритуала сна";
+        q2.targetItemId = "chamomile_tea";
         q2.targetCount = 1;
-        q2.rewardGold = 190;
-        q2.hint = "Подсказка: Сварите воду + растительный порошок в котле.";
+        q2.rewardGold = 175;
+        q2.hint = "Подсказка: Сварите в котле воду + 4 ромашки (или 2 пыльцы).";
         dailyQuests.push_back(q2);
 
         QuestRecord q3;
-        q3.id = "q_fiber";
-        q3.clientName = "Ткачиха Марта";
-        q3.title = "Крепкие волокна";
-        q3.description = "Требуется: 3 Волокна для плетения веревок и сумок";
-        q3.targetItemId = "fiber";
-        q3.targetCount = 3;
-        q3.rewardGold = 55;
-        q3.hint = "Подсказка: Срезайте дикие травы косой на полях фермы.";
+        q3.id = "q_stone";
+        q3.clientName = "Каменщик Дарин";
+        q3.title = "Прочный камень";
+        q3.description = "Требуется: 4 Камня для укрепления фундамента";
+        q3.targetItemId = "stone";
+        q3.targetCount = 4;
+        q3.rewardGold = 65;
+        q3.hint = "Подсказка: Раскалывайте серые булыжники киркой.";
         dailyQuests.push_back(q3);
     }
 }
@@ -127,38 +127,38 @@ void QuestManager::initShopCatalog()
     shopCatalog.clear();
 
     ShopCatalogItem i1;
-    i1.itemId = "seeds";
-    i1.name = "Пакетик семян";
-    i1.price = 15;
-    i1.desc = "Быстрорастущие ягоды для фермы.";
+    i1.itemId = "chamomile_seeds";
+    i1.name = "Семена ромашки";
+    i1.price = 20;
+    i1.desc = "Аптечная ромашка для отваров и чая.";
     shopCatalog.push_back(i1);
 
     ShopCatalogItem i2;
-    i2.itemId = "empty_flask";
-    i2.name = "Пустой флакон";
-    i2.price = 20;
-    i2.desc = "Стеклянная колба для набора воды и зелий.";
+    i2.itemId = "seeds";
+    i2.name = "Пакетик семян ягод";
+    i2.price = 15;
+    i2.desc = "Быстрорастущие сочные лесные ягоды.";
     shopCatalog.push_back(i2);
 
     ShopCatalogItem i3;
-    i3.itemId = "wood";
-    i3.name = "Связка бревен (3 шт)";
-    i3.price = 45;
-    i3.desc = "Плотная дубовая древесина для крафта.";
+    i3.itemId = "empty_flask";
+    i3.name = "Пустой флакон";
+    i3.price = 20;
+    i3.desc = "Стеклянная колба для набора воды и зелий.";
     shopCatalog.push_back(i3);
 
     ShopCatalogItem i4;
-    i4.itemId = "stone";
-    i4.name = "Каменные блоки (3 шт)";
-    i4.price = 40;
-    i4.desc = "Строительный гранит для мебели и очага.";
+    i4.itemId = "chamomile_decoction";
+    i4.name = "Ромашковый отвар";
+    i4.price = 60;
+    i4.desc = "Защищает от бессонной ночи (+20 сил).";
     shopCatalog.push_back(i4);
 
     ShopCatalogItem i5;
-    i5.itemId = "energy_potion";
-    i5.name = "Эликсир бодрости";
-    i5.price = 90;
-    i5.desc = "Мгновенно восстанавливает 50 энергии.";
+    i5.itemId = "wood";
+    i5.name = "Связка бревен (3 шт)";
+    i5.price = 45;
+    i5.desc = "Плотная дубовая древесина для крафта.";
     shopCatalog.push_back(i5);
 }
 

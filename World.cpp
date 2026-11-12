@@ -279,7 +279,8 @@ void World::draw(sf::RenderWindow& window)
                 else if (t.plantStage == 3) col = 3; // 3: Куст с бутонами
                 else if (t.plantStage == 4) col = 5; // 4: Спелые ягоды
 
-                cropsSprite->setTextureRect(sf::IntRect({ col * 16, 0 }, { 16, 32 }));
+                int row = (t.cropType == 1) ? 1 : 0;
+                cropsSprite->setTextureRect(sf::IntRect({ col * 16, row * 32 }, { 16, 32 }));
                 // Растение 32x64 (16x32 * 2x), смещаем вверх так чтобы низ попадал на грядку
                 cropsSprite->setPosition({ px, py - 32.f });
                 window.draw(*cropsSprite);
@@ -553,18 +554,49 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
             if (t.plantStage == 4)
             {
                 // Сбор урожая
-                droppedItems.push_back(DroppedItem{ Item{ "berry", 2 }, { targetX * TILE_SIZE + 4.f, targetY * TILE_SIZE + 4.f }, 0.f });
+                float dropX = targetX * TILE_SIZE + 4.f;
+                float dropY = targetY * TILE_SIZE + 4.f;
+                if (t.cropType == 1)
+                {
+                    droppedItems.push_back(DroppedItem{ Item{ "chamomile", 2 }, { dropX, dropY }, 0.f });
+                    if (rand() % 100 < 40)
+                    {
+                        droppedItems.push_back(DroppedItem{ Item{ "chamomile_seeds", 1 }, { dropX + 8.f, dropY - 8.f }, 0.f });
+                    }
+                }
+                else
+                {
+                    droppedItems.push_back(DroppedItem{ Item{ "berry", 2 }, { dropX, dropY }, 0.f });
+                    if (rand() % 100 < 30)
+                    {
+                        droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, { dropX + 8.f, dropY - 8.f }, 0.f });
+                    }
+                }
             }
             t.plantStage = 0;
+            t.cropType = 0;
             t.watered = false;
+            t.daysGrown = 0;
         }
     }
     else if (itemId == "seeds")
     {
         if (t.type == 1 && t.plantStage == 0 && inv.countItem("seeds") > 0)
         {
-            t.plantStage = 1; // Посадка (Стадия 1: семена)
+            t.plantStage = 1; // Посадка (Стадия 1: семена ягод)
+            t.cropType = 0;
+            t.daysGrown = 0;
             inv.removeItem("seeds", 1);
+        }
+    }
+    else if (itemId == "chamomile_seeds")
+    {
+        if (t.type == 1 && t.plantStage == 0 && inv.countItem("chamomile_seeds") > 0)
+        {
+            t.plantStage = 1; // Посадка (Стадия 1: семена ромашки)
+            t.cropType = 1;
+            t.daysGrown = 0;
+            inv.removeItem("chamomile_seeds", 1);
         }
     }
     else if (itemId == "watering_can")
@@ -579,9 +611,28 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
         // Рука: сбор спелого урожая
         if (t.type == 1 && t.plantStage == 4)
         {
-            droppedItems.push_back(DroppedItem{ Item{ "berry", 2 }, { targetX * TILE_SIZE + 4.f, targetY * TILE_SIZE + 4.f }, 0.f });
+            float dropX = targetX * TILE_SIZE + 4.f;
+            float dropY = targetY * TILE_SIZE + 4.f;
+            if (t.cropType == 1)
+            {
+                droppedItems.push_back(DroppedItem{ Item{ "chamomile", 2 }, { dropX, dropY }, 0.f });
+                if (rand() % 100 < 40)
+                {
+                    droppedItems.push_back(DroppedItem{ Item{ "chamomile_seeds", 1 }, { dropX + 8.f, dropY - 8.f }, 0.f });
+                }
+            }
+            else
+            {
+                droppedItems.push_back(DroppedItem{ Item{ "berry", 2 }, { dropX, dropY }, 0.f });
+                if (rand() % 100 < 30)
+                {
+                    droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, { dropX + 8.f, dropY - 8.f }, 0.f });
+                }
+            }
             t.plantStage = 0;
+            t.cropType = 0;
             t.watered = false;
+            t.daysGrown = 0;
         }
     }
 }

@@ -13,6 +13,7 @@
 struct Player;
 class AlchemySystem;
 struct SaveSlotInfo;
+struct QuestRecord;
 
 // ============================================
 // СОСТОЯНИЯ МЕНЮ И НАСТРОЙКИ
@@ -81,10 +82,11 @@ struct UI {
         const ItemDatabase& itemDB,
         int currentTab = 0,
         int journalCategory = 0,
-        const AlchemySystem* alchemy = nullptr);
+        const AlchemySystem* alchemy = nullptr,
+        const std::vector<QuestRecord>* dailyQuests = nullptr);
 
     void drawCraftingTab(sf::RenderWindow& window, const Inventory& inv, const ItemDatabase& itemDB);
-    void drawJournalTab(sf::RenderWindow& window, int selectedCategory, const AlchemySystem* alchemy);
+    void drawJournalTab(sf::RenderWindow& window, int selectedCategory, const AlchemySystem* alchemy, const std::vector<QuestRecord>* dailyQuests = nullptr, const Inventory* inv = nullptr);
 
     void drawInteractiveCauldron(sf::RenderWindow& window,
         const Inventory& inv,

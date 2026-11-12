@@ -82,18 +82,19 @@ bool InventoryController::handleTabClicks(float mx, float my,
         }
     }
 
-    // Вкладка Дневника (выбор категорий справа)
+    // Вкладка Дневника (выбор категорий справа: Задания, Зелья, Растения, Ремесло)
     if (currentTab == InventoryTab::Journal)
     {
         float tabX = 235.f + 350.f + 10.f; // 595.f
         if (mx >= tabX && mx <= tabX + 120.f)
         {
-            for (int c = 0; c < 3; c++)
+            for (int c = 0; c < 4; c++)
             {
-                float ty = 220.f + 15.f + c * 44.f;
-                if (my >= ty && my <= ty + 34.f)
+                float ty = 220.f + 12.f + c * 38.f;
+                if (my >= ty && my <= ty + 30.f)
                 {
                     journalCategory = c;
+                    sound.playClick();
                     return true;
                 }
             }

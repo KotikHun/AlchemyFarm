@@ -883,35 +883,6 @@ void Game::handleEvents()
                 return;
             }
 
-            // Тестовая выдача зелий и ингредиентов на F1
-            if (keyPressed->code == sf::Keyboard::Key::F1)
-            {
-                inv.addItem("chamomile_decoction", 1, 10);
-                inv.addItem("chamomile_tea", 1, 10);
-                inv.addItem("chamomile_tincture", 1, 10);
-                inv.addItem("berry_juice", 1, 10);
-                inv.addItem("berry_decoction", 1, 10);
-                inv.addItem("berry_elixir", 1, 10);
-                inv.addItem("forest_infusion", 1, 10);
-                inv.addItem("tonic_infusion", 1, 10);
-                inv.addItem("grand_nectar", 1, 10);
-                inv.addItem("chamomile", 10, 99);
-                inv.addItem("chamomile_powder", 10, 99);
-                inv.addItem("berry", 10, 99);
-                inv.addItem("berry_powder", 10, 99);
-                inv.addItem("water_flask", 5, 99);
-                inv.addItem("empty_flask", 5, 99);
-
-                sound.playCoin();
-                FloatingText ft;
-                ft.text = "[Тест] Выданы все 9 зелий и ингредиенты в инвентарь!";
-                ft.position = { player.shape.getPosition().x - 140.f, player.shape.getPosition().y - 40.f };
-                ft.color = sf::Color(255, 235, 100);
-                ft.timer = 3.0f;
-                floatingTexts.push_back(ft);
-                return;
-            }
-
             // Быстрое сохранение на F5
             if (keyPressed->code == sf::Keyboard::Key::F5)
             {
@@ -1970,7 +1941,7 @@ void Game::render()
     }
 
     // 8. Окно инвентаря
-    ui.drawInventory(window, inv, activeSlot, isInventoryOpen || chestOpen, isDragging, chestOpen, itemDB, static_cast<int>(currentTab), journalCategory, &alchemy);
+    ui.drawInventory(window, inv, activeSlot, isInventoryOpen || chestOpen, isDragging, chestOpen, itemDB, static_cast<int>(currentTab), journalCategory, &alchemy, &quests.dailyQuests);
 
     // 9. Интерактивный котел
     if (alchemy.isCauldronOpen)

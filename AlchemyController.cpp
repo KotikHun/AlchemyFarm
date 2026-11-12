@@ -14,13 +14,39 @@ bool AlchemyController::handleCauldronClick(float mx, float my,
     float winX = 60.f;
     float winY = 60.f;
 
-    // Если открыта книга рецептов: клик по [X] или вне закрывает её
+    // Если открыта книга рецептов: пагинация, клик по [X] или вне закрывает её
     if (alchemy.showRecipes)
     {
         float bx = winX + 110.f;
         float by = winY + 35.f;
         float cx = bx + 460.f - 36.f;
         float cy = by + 12.f;
+
+        // Кнопка [ < ] предыдущая страница
+        if (isInsideRect(mx, my, bx + 140.f, by + 368.f, 34.f, 26.f))
+        {
+            if (alchemy.recipePage > 0)
+            {
+                alchemy.recipePage--;
+                sound.playClick();
+            }
+            return true;
+        }
+
+        // Кнопка [ > ] следующая страница
+        if (isInsideRect(mx, my, bx + 286.f, by + 368.f, 34.f, 26.f))
+        {
+            int discoveredCount = 0;
+            for (const auto& r : alchemy.getRecipes()) { if (r.discovered) discoveredCount++; }
+            int totalPages = std::max(1, (discoveredCount + 2) / 3);
+            if (alchemy.recipePage < totalPages - 1)
+            {
+                alchemy.recipePage++;
+                sound.playClick();
+            }
+            return true;
+        }
+
         if (isInside(mx, my, cx, cy, 26.f) || !isInsideRect(mx, my, bx, by, 460.f, 410.f))
         {
             alchemy.showRecipes = false;

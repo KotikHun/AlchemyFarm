@@ -268,7 +268,8 @@ void UI::drawInventory(sf::RenderWindow& window,
     const ItemDatabase& itemDB,
     int currentTab,
     int journalCategory,
-    const AlchemySystem* alchemy)
+    const AlchemySystem* alchemy,
+    const std::vector<QuestRecord>* dailyQuests)
 {
     if (!isOpen) return;
 
@@ -339,7 +340,7 @@ void UI::drawInventory(sf::RenderWindow& window,
     }
     if (!chestOpen && currentTab == 2)
     {
-        drawJournalTab(window, journalCategory, alchemy);
+        drawJournalTab(window, journalCategory, alchemy, dailyQuests, &inv);
         return;
     }
 
@@ -1247,7 +1248,7 @@ void UI::drawCraftingTab(sf::RenderWindow& window, const Inventory& inv, const I
 // ============================================
 // ВКЛАДКА ДНЕВНИКА В ИНВЕНТАРЕ (СТРАНИЦЫ СЛЕВА, КАТЕГОРИИ СПРАВА)
 // ============================================
-void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const AlchemySystem* alchemy)
+void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const AlchemySystem* alchemy, const std::vector<QuestRecord>* dailyQuests, const Inventory* inv)
 {
     float startX = 235.f;
     float startY = 220.f;
@@ -1258,15 +1259,15 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
     float mx = static_cast<float>(mpos.x);
     float my = static_cast<float>(mpos.y);
 
-    // 1. Вкладки категорий СПРАВА (закладки книги)
-    const char* categoryNames[] = { "Зелья", "Растения", "Ремесло" };
+    // 1. Вкладки категорий СПРАВА (закладки книги: Задания, Зелья, Растения, Ремесло)
+    const char* categoryNames[] = { "Задания", "Зелья", "Растения", "Ремесло" };
     float tabX = startX + pageW + 10.f; // 595.f
     float tabW = 120.f;
-    float tabH = 34.f;
+    float tabH = 30.f;
 
-    for (int c = 0; c < 3; c++)
+    for (int c = 0; c < 4; c++)
     {
-        float ty = startY + 15.f + c * 44.f;
+        float ty = startY + 12.f + c * 38.f;
         bool isSel = (selectedCategory == c);
         bool hovered = isInsideRect(mx, my, tabX, ty, tabW, tabH);
 
@@ -1288,10 +1289,10 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
 
         sf::Text catTxt(font);
         catTxt.setString(toUtf8(categoryNames[c]));
-        catTxt.setCharacterSize(14);
+        catTxt.setCharacterSize(13);
         catTxt.setFillColor(isSel ? sf::Color(255, 230, 130) : sf::Color(175, 175, 185));
         sf::FloatRect cb = catTxt.getLocalBounds();
-        catTxt.setPosition({ tabX + (tabW - cb.size.x) / 2.f, ty + 8.f });
+        catTxt.setPosition({ tabX + (tabW - cb.size.x) / 2.f, ty + 6.f });
         window.draw(catTxt);
     }
 
@@ -1305,11 +1306,85 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
 
     // Заголовок страницы
     sf::Text header(font);
-    header.setCharacterSize(16);
+    header.setCharacterSize(15);
     header.setFillColor(sf::Color(255, 220, 110));
     header.setPosition({ startX + 12.f, startY + 10.f });
 
-    if (selectedCategory == 0) // Зелья
+    if (selectedCategory == 0) // Задания (Ежедневные заказы)
+    {
+        header.setString(toUtf8("Ежедневные заказы жителей"));
+        window.draw(header);
+
+        if (dailyQuests != nullptr && !dailyQuests->empty())
+        {
+            float rowY = startY + 34.f;
+            for (size_t i = 0; i < dailyQuests->size() && i < 3; i++)
+            {
+                const auto& q = (*dailyQuests)[i];
+                sf::RectangleShape rowBox({ pageW - 20.f, 68.f });
+                rowBox.setPosition({ startX + 10.f, rowY });
+                rowBox.setFillColor(q.isCompleted ? sf::Color(30, 45, 34, 220) : sf::Color(32, 28, 38, 200));
+                rowBox.setOutlineColor(q.isCompleted ? sf::Color(100, 200, 120) : sf::Color(120, 95, 70));
+                rowBox.setOutlineThickness(1.f);
+                window.draw(rowBox);
+
+                drawItemIcon(window, startX + 14.f, rowY + 14.f, Item{ q.targetItemId, q.targetCount });
+
+                // Клиент и название
+                sf::Text qTitle(font);
+                qTitle.setString(toUtf8(q.clientName + ": " + q.title));
+                qTitle.setCharacterSize(12);
+                qTitle.setFillColor(sf::Color(255, 225, 120));
+                qTitle.setPosition({ startX + 54.f, rowY + 6.f });
+                window.draw(qTitle);
+
+                // Описание задачи
+                sf::Text qDesc(font);
+                qDesc.setString(toUtf8(q.description));
+                qDesc.setCharacterSize(11);
+                qDesc.setFillColor(sf::Color(210, 215, 230));
+                qDesc.setPosition({ startX + 54.f, rowY + 25.f });
+                window.draw(qDesc);
+
+                // Статус
+                sf::Text qStatus(font);
+                if (q.isCompleted)
+                {
+                    qStatus.setString(toUtf8("[Сдано] Награда получена"));
+                    qStatus.setFillColor(sf::Color(130, 255, 150));
+                }
+                else
+                {
+                    int hasCount = inv ? inv->countItem(q.targetItemId) : 0;
+                    if (hasCount >= q.targetCount)
+                    {
+                        qStatus.setString(toUtf8("[Готово] Сдайте на доске! (+" + std::to_string(q.rewardGold) + "g)"));
+                        qStatus.setFillColor(sf::Color(255, 230, 90));
+                    }
+                    else
+                    {
+                        qStatus.setString(toUtf8("В наличии: " + std::to_string(hasCount) + "/" + std::to_string(q.targetCount) + " (Награда: " + std::to_string(q.rewardGold) + "g)"));
+                        qStatus.setFillColor(sf::Color(180, 180, 195));
+                    }
+                }
+                qStatus.setCharacterSize(10);
+                qStatus.setPosition({ startX + 54.f, rowY + 46.f });
+                window.draw(qStatus);
+
+                rowY += 74.f;
+            }
+        }
+        else
+        {
+            sf::Text noQ(font);
+            noQ.setString(toUtf8("Нет активных поручений на сегодня.\nПроверьте доску заказов завтра!"));
+            noQ.setCharacterSize(12);
+            noQ.setFillColor(sf::Color(180, 180, 190));
+            noQ.setPosition({ startX + 20.f, startY + 60.f });
+            window.draw(noQ);
+        }
+    }
+    else if (selectedCategory == 1) // Зелья
     {
         header.setString(toUtf8("Книга рецептов зельеварения"));
         window.draw(header);
@@ -1317,10 +1392,13 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
         if (alchemy != nullptr)
         {
             const auto& rlist = alchemy->getRecipes();
-            float rowY = startY + 36.f;
-            for (size_t i = 0; i < rlist.size() && i < 3; i++)
+            float rowY = startY + 34.f;
+            int countShown = 0;
+            for (size_t i = 0; i < rlist.size() && countShown < 3; i++)
             {
                 const auto& r = rlist[i];
+                if (!r.discovered && countShown >= 2) continue; // показать первые открытые или одну закрытую
+
                 sf::RectangleShape rowBox({ pageW - 20.f, 68.f });
                 rowBox.setPosition({ startX + 10.f, rowY });
                 rowBox.setFillColor(r.discovered ? sf::Color(35, 42, 38, 220) : sf::Color(28, 28, 34, 200));
@@ -1348,7 +1426,7 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
 
                     sf::Text rEff(font);
                     rEff.setString(toUtf8("Эффект: " + r.effectText));
-                    rEff.setCharacterSize(11);
+                    rEff.setCharacterSize(10);
                     rEff.setFillColor(sf::Color(190, 235, 180));
                     rEff.setPosition({ startX + 54.f, rowY + 44.f });
                     window.draw(rEff);
@@ -1363,7 +1441,7 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
                     window.draw(rName);
 
                     sf::Text rHint(font);
-                    rHint.setString(toUtf8("Экспериментируйте с чистой водой, травами\nи порошками в алхимическом котле."));
+                    rHint.setString(toUtf8("Экспериментируйте у котла (клавиша R)\nс чистой водой, травами и порошками!"));
                     rHint.setCharacterSize(11);
                     rHint.setFillColor(sf::Color(130, 130, 145));
                     rHint.setPosition({ startX + 18.f, rowY + 30.f });
@@ -1371,26 +1449,29 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
                 }
 
                 rowY += 74.f;
+                countShown++;
             }
         }
     }
-    else if (selectedCategory == 1) // Растения
+    else if (selectedCategory == 2) // Растения
     {
         header.setString(toUtf8("Атлас трав, культур и погоды"));
         window.draw(header);
 
         sf::Text body(font);
         body.setString(toUtf8(
-            "- Дикая ягода:\n"
-            "  Растет на полянках фермы. Дает +15 энергии или\n"
-            "  перетирается в ступке в ягодный порошок.\n\n"
-            "- Волокно и трава:\n"
-            "  Сорняки после скашивания. Исходный материал для\n"
-            "  травяного порошка, ковров и мягких кроватей.\n\n"
-            "- Семена и грядки (4 стадии созревания):\n"
-            "  Поливайте грядки лейкой для роста каждый день!\n"
-            "  * В дождливую погоду дождь автоматически\n"
-            "    поливает все вспаханные грядки на ферме!"
+            "- Аптечная ромашка:\n"
+            "  Выращивается из семян. Основа для отваров и чая.\n"
+            "  Защищает от ночного обморока и восстанавливает силы!\n\n"
+            "- Лесная ягода:\n"
+            "  Растет на полях фермы. Дает мгновенный заряд бодрости\n"
+            "  или перетирается в ступке в алхимический порошок.\n\n"
+            "- Ромашковая пыльца и порошки (1 порошок = 2 сырья):\n"
+            "  Максимальная насыщенность зелий достигается только\n"
+            "  через тонкий помол в ступке алхимического стола!\n\n"
+            "- Полив и погода:\n"
+            "  Поливайте грядки лейкой каждый день. В дождь\n"
+            "  все вспаханные грядки поливаются автоматически!"
         ));
         body.setCharacterSize(11);
         body.setFillColor(sf::Color(215, 225, 220));
@@ -1409,12 +1490,12 @@ void UI::drawJournalTab(sf::RenderWindow& window, int selectedCategory, const Al
             "  Ложитесь до 02:00, чтобы избежать обморока!\n\n"
             "- Доска объявлений и заказов:\n"
             "  Выполняйте ежедневные заказы жителей долины за\n"
-            "  золото и покупайте ценные материалы в лавке.\n\n"
+            "  золото и покупайте семена ромашки в лавке.\n\n"
             "- Ящик сбыта товаров (Shipping Bin):\n"
             "  Складывайте урожай и зелья — ночью они\n"
             "  автоматически продаются с подробным отчетом!\n\n"
             "- Котел и ступка:\n"
-            "  Измельчайте травы и варите чудодейственные зелья."
+            "  Измельчайте сырье и варите чудодейственные зелья."
         ));
         body.setCharacterSize(11);
         body.setFillColor(sf::Color(230, 225, 210));

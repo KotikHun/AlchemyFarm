@@ -42,6 +42,7 @@ public:
     // Состояние интерактивного котла
     bool isCauldronOpen = false;
     bool showRecipes = false;
+    int recipePage = 0;
     std::array<Item, 6> cauldronIngredients;
     Item cauldronBase;
     bool isBrewing = false;

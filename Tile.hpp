@@ -9,6 +9,7 @@
 struct Tile {
     int type = 0;          // 0 = трава, 1 = грядка, 2 = вода
     int plantStage = 0;    // 0 = пусто, 1 = семена, 2 = росток, 3 = куст, 4 = спелый урожай
+    int cropType = 0;      // 0 = ягоды (seeds), 1 = ромашка (chamomile_seeds)
     bool watered = false;  // полито ли
     int daysGrown = 0;     // сколько дней растёт
     int variant = 0;       // случайный вариант для разнообразия

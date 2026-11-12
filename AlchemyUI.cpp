@@ -406,11 +406,15 @@ void AlchemyUI::drawCauldronRecipeBook(sf::RenderWindow& window, const sf::Font&
     }
     else
     {
-        float rowY = by + 50.f;
-        for (size_t i = 0; i < discoveredList.size() && i < 3; i++)
+        int totalPages = std::max(1, static_cast<int>((discoveredList.size() + 2) / 3));
+        int curPage = std::clamp(alchemy.recipePage, 0, totalPages - 1);
+        size_t startIdx = static_cast<size_t>(curPage * 3);
+
+        float rowY = by + 46.f;
+        for (size_t i = startIdx; i < discoveredList.size() && i < startIdx + 3; i++)
         {
             const auto& r = *discoveredList[i];
-            sf::RectangleShape rowBox({ bookW - 30.f, 105.f });
+            sf::RectangleShape rowBox({ bookW - 30.f, 100.f });
             rowBox.setPosition({ bx + 15.f, rowY });
             rowBox.setFillColor(sf::Color(32, 36, 46, 230));
             rowBox.setOutlineColor(sf::Color(90, 130, 105));
@@ -425,7 +429,7 @@ void AlchemyUI::drawCauldronRecipeBook(sf::RenderWindow& window, const sf::Font&
             rName.setString(toUtf8(r.name));
             rName.setCharacterSize(15);
             rName.setFillColor(sf::Color(255, 230, 130));
-            rName.setPosition({ bx + 68.f, rowY + 10.f });
+            rName.setPosition({ bx + 68.f, rowY + 8.f });
             window.draw(rName);
 
             // Формула варки
@@ -433,7 +437,7 @@ void AlchemyUI::drawCauldronRecipeBook(sf::RenderWindow& window, const sf::Font&
             rForm.setString(toUtf8("Основа: Флакон с водой\nИнгредиенты: " + r.formulaText));
             rForm.setCharacterSize(11);
             rForm.setFillColor(sf::Color(150, 220, 255));
-            rForm.setPosition({ bx + 68.f, rowY + 34.f });
+            rForm.setPosition({ bx + 68.f, rowY + 30.f });
             window.draw(rForm);
 
             // Эффект
@@ -441,10 +445,52 @@ void AlchemyUI::drawCauldronRecipeBook(sf::RenderWindow& window, const sf::Font&
             rEff.setString(toUtf8("Эффект: " + r.effectText));
             rEff.setCharacterSize(11);
             rEff.setFillColor(sf::Color(140, 255, 160));
-            rEff.setPosition({ bx + 68.f, rowY + 76.f });
+            rEff.setPosition({ bx + 68.f, rowY + 70.f });
             window.draw(rEff);
 
-            rowY += 114.f;
+            rowY += 105.f;
+        }
+
+        // Панель перелистывания страниц (внизу книги)
+        if (totalPages > 1)
+        {
+            // Кнопка [ < ]
+            sf::RectangleShape prevBtn({ 34.f, 26.f });
+            prevBtn.setPosition({ bx + 140.f, by + 368.f });
+            prevBtn.setFillColor((curPage > 0) ? sf::Color(55, 60, 75) : sf::Color(35, 38, 48));
+            prevBtn.setOutlineColor(sf::Color(140, 150, 170));
+            prevBtn.setOutlineThickness(1.f);
+            window.draw(prevBtn);
+
+            sf::Text prevTxt(font);
+            prevTxt.setString("<");
+            prevTxt.setCharacterSize(14);
+            prevTxt.setFillColor(sf::Color::White);
+            prevTxt.setPosition({ bx + 152.f, by + 371.f });
+            window.draw(prevTxt);
+
+            // Номер страницы
+            sf::Text pageTxt(font);
+            pageTxt.setString(toUtf8("Стр. " + std::to_string(curPage + 1) + " / " + std::to_string(totalPages)));
+            pageTxt.setCharacterSize(13);
+            pageTxt.setFillColor(sf::Color(220, 205, 150));
+            pageTxt.setPosition({ bx + 190.f, by + 373.f });
+            window.draw(pageTxt);
+
+            // Кнопка [ > ]
+            sf::RectangleShape nextBtn({ 34.f, 26.f });
+            nextBtn.setPosition({ bx + 286.f, by + 368.f });
+            nextBtn.setFillColor((curPage < totalPages - 1) ? sf::Color(55, 60, 75) : sf::Color(35, 38, 48));
+            nextBtn.setOutlineColor(sf::Color(140, 150, 170));
+            nextBtn.setOutlineThickness(1.f);
+            window.draw(nextBtn);
+
+            sf::Text nextTxt(font);
+            nextTxt.setString(">");
+            nextTxt.setCharacterSize(14);
+            nextTxt.setFillColor(sf::Color::White);
+            nextTxt.setPosition({ bx + 298.f, by + 371.f });
+            window.draw(nextTxt);
         }
     }
 }
