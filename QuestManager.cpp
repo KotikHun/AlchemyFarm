@@ -129,8 +129,8 @@ void QuestManager::initShopCatalog()
     ShopCatalogItem i1;
     i1.itemId = "chamomile_seeds";
     i1.name = "Семена ромашки";
-    i1.price = 20;
-    i1.desc = "Аптечная ромашка для отваров и чая.";
+    i1.price = 30;
+    i1.desc = "Аптечная ромашка для целебных отваров и чая.";
     shopCatalog.push_back(i1);
 
     ShopCatalogItem i2;
@@ -143,22 +143,22 @@ void QuestManager::initShopCatalog()
     ShopCatalogItem i3;
     i3.itemId = "empty_flask";
     i3.name = "Пустой флакон";
-    i3.price = 20;
-    i3.desc = "Стеклянная колба для набора воды и зелий.";
+    i3.price = 25;
+    i3.desc = "Многоразовая колба для набора воды и варки зелий.";
     shopCatalog.push_back(i3);
 
     ShopCatalogItem i4;
     i4.itemId = "chamomile_decoction";
     i4.name = "Ромашковый отвар";
-    i4.price = 60;
+    i4.price = 65;
     i4.desc = "Защищает от бессонной ночи (+20 сил).";
     shopCatalog.push_back(i4);
 
     ShopCatalogItem i5;
     i5.itemId = "wood";
     i5.name = "Связка бревен (3 шт)";
-    i5.price = 45;
-    i5.desc = "Плотная дубовая древесина для крафта.";
+    i5.price = 30;
+    i5.desc = "Плотная дубовая древесина для верстака и сундуков.";
     shopCatalog.push_back(i5);
 }
 

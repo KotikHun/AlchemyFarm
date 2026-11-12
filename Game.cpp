@@ -155,19 +155,16 @@ void Game::startNewGame()
     player.actionTimer = 0.f;
     player.dirX = 0;
     player.dirY = 1;
-    player.gold = 100;
+    player.gold = 0;
     player.shape.setPosition({ house.exteriorPos.x + 32.f - 16.f, house.exteriorPos.y - 48.f });
 
-    // 2. Сброс инвентаря на стартовый набор
+    // 2. Сброс инвентаря на стартовый набор: только инструменты и 5 семян ягод
     inv = Inventory();
     inv.addItem("hoe", 1, 1);
     inv.addItem("watering_can", 1, 1);
     inv.addItem("axe", 1, 1);
     inv.addItem("pickaxe", 1, 1);
-    inv.addItem("seeds", 10, 99);
-    inv.addItem("berry", 5, 99);
-    inv.addItem("empty_flask", 3, 99);
-    inv.addItem("alchemist_table", 1, 99);
+    inv.addItem("seeds", 5, 99);
 
     // 3. Сброс времени
     timeSystem = TimeSystem();
@@ -184,19 +181,12 @@ void Game::startNewGame()
     droppedItems.clear();
     floatingTexts.clear();
 
-    // Стартовый деревянный сундук на улице (Tile 13, 10)
+    // Стартовый деревянный сундук на улице (Tile 13, 10) — пустой для хранения вещей
     Chest chest;
     chest.slotCount = 18;
     chest.type = "wooden";
     chest.position = { 13 * 32.f, 10 * 32.f }; // { 416.f, 320.f }
     chest.isInside = false;
-    chest.inventory.addItem("chamomile", 20, 99);
-    chest.inventory.addItem("chamomile_powder", 10, 99);
-    chest.inventory.addItem("berry", 20, 99);
-    chest.inventory.addItem("berry_powder", 10, 99);
-    chest.inventory.addItem("water_flask", 10, 99);
-    chest.inventory.addItem("empty_flask", 10, 99);
-    chest.inventory.addItem("chamomile_seeds", 10, 99);
     chests.push_back(chest);
 
     // Ящик сбыта товаров (Shipping Bin) возле дома (Tile 12, 10)
