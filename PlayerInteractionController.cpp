@@ -159,12 +159,158 @@ bool PlayerInteractionController::handleConsumeOrUseItem(Player& player,
     if (itm.isEmpty()) return false;
 
     sf::Vector2f ppos = player.shape.getPosition();
-    if (itm.id == "energy_potion")
+
+    // === 9 НОВЫХ ЗЕЛИЙ ===
+    // 1. Ромашковая линейка (защита от бессонницы + регенерация)
+    if (itm.id == "chamomile_decoction")
+    {
+        inv.removeItem("chamomile_decoction", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(20.f);
+        player.chamomileProtection = true;
+
+        FloatingText ft;
+        ft.text = "+20 Энергии! Защита от бессонной ночи активна!";
+        ft.position = ppos;
+        ft.color = sf::Color(160, 255, 170);
+        ft.timer = 2.0f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    else if (itm.id == "chamomile_tea")
+    {
+        inv.removeItem("chamomile_tea", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(45.f);
+        player.chamomileProtection = true;
+        player.regenTimer = 30.f;
+        player.regenRate = 1.0f;
+
+        FloatingText ft;
+        ft.text = "+45 Энергии! Регенерация (+1/сек) и защита сна!";
+        ft.position = ppos;
+        ft.color = sf::Color(160, 255, 170);
+        ft.timer = 2.0f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    else if (itm.id == "chamomile_tincture")
+    {
+        inv.removeItem("chamomile_tincture", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(75.f);
+        player.chamomileProtection = true;
+        player.regenTimer = 30.f;
+        player.regenRate = 3.0f;
+
+        FloatingText ft;
+        ft.text = "+75 Энергии! Мощная регенерация (+3/сек) и защита сна!";
+        ft.position = ppos;
+        ft.color = sf::Color(140, 255, 180);
+        ft.timer = 2.2f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    // 2. Ягодная линейка (мгновенные всплески бодрости)
+    else if (itm.id == "berry_juice")
+    {
+        inv.removeItem("berry_juice", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(35.f);
+
+        FloatingText ft;
+        ft.text = "Ягодный морс: +35 Энергии!";
+        ft.position = ppos;
+        ft.color = sf::Color(255, 150, 190);
+        ft.timer = 1.6f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    else if (itm.id == "berry_decoction")
+    {
+        inv.removeItem("berry_decoction", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(70.f);
+
+        FloatingText ft;
+        ft.text = "Спелый взвар: +70 Энергии!";
+        ft.position = ppos;
+        ft.color = sf::Color(255, 130, 180);
+        ft.timer = 1.8f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    else if (itm.id == "berry_elixir")
+    {
+        inv.removeItem("berry_elixir", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(110.f);
+
+        FloatingText ft;
+        ft.text = "Ягодный эликсир: +110 Энергии!";
+        ft.position = ppos;
+        ft.color = sf::Color(255, 100, 170);
+        ft.timer = 2.0f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    // 3. Комбинированная линейка (Ягоды + Ромашка)
+    else if (itm.id == "forest_infusion")
+    {
+        inv.removeItem("forest_infusion", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(40.f);
+        player.chamomileProtection = true;
+
+        FloatingText ft;
+        ft.text = "Лесной сбор: +40 Энергии и защита сна!";
+        ft.position = ppos;
+        ft.color = sf::Color(200, 160, 255);
+        ft.timer = 1.8f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    else if (itm.id == "tonic_infusion")
+    {
+        inv.removeItem("tonic_infusion", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(80.f);
+        player.chamomileProtection = true;
+        player.regenTimer = 30.f;
+        player.regenRate = 2.0f;
+
+        FloatingText ft;
+        ft.text = "Тонизирующий настой: +80 Энергии, Регенерация, Защита сна!";
+        ft.position = ppos;
+        ft.color = sf::Color(210, 150, 255);
+        ft.timer = 2.0f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    else if (itm.id == "grand_nectar")
+    {
+        inv.removeItem("grand_nectar", 1);
+        inv.addItem("empty_flask", 1, 99);
+        player.restoreEnergy(120.f);
+        player.chamomileProtection = true;
+        player.regenTimer = 30.f;
+        player.regenRate = 3.0f;
+        player.speedBuffTimer = 60.f;
+
+        FloatingText ft;
+        ft.text = "Великий нектар: +120 Энергии, Скорость +40%, Реген, Защита сна!";
+        ft.position = ppos;
+        ft.color = sf::Color(225, 170, 255);
+        ft.timer = 2.5f;
+        floatingTexts.push_back(ft);
+        return true;
+    }
+    // === СТАРЫЕ ЗЕЛЬЯ (для совместимости) ===
+    else if (itm.id == "energy_potion")
     {
         inv.removeItem("energy_potion", 1);
         inv.addItem("empty_flask", 1, 99);
-        player.energy = std::min(player.maxEnergy, player.energy + 50.f);
-        player.isExhausted = false;
+        player.restoreEnergy(50.f);
 
         FloatingText ft;
         ft.text = "+50 Энергии!";

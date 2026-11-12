@@ -128,17 +128,27 @@ void DayNightCycle::wakeUpFromSleep(SleepReport& sleepReport,
     house.isInside = true;
     player.shape.setPosition({ House::ROOM_X + 32.f + 16.f, House::ROOM_Y + 85.f + 10.f });
 
-    if (sleepReport.fullRest)
+    if (sleepReport.fullRest || player.chamomileProtection)
     {
         player.energy = player.maxEnergy;
         player.isExhausted = false;
 
         FloatingText ft;
-        ft.text = "Доброе утро! Новый день наступил (энергия 100%).";
+        if (!sleepReport.fullRest && player.chamomileProtection)
+        {
+            ft.text = "Ромашковый отвар спас вас! Новый день (энергия 100%).";
+            ft.color = sf::Color(160, 255, 180);
+        }
+        else
+        {
+            ft.text = "Доброе утро! Новый день наступил (энергия 100%).";
+            ft.color = sf::Color(140, 255, 160);
+        }
         ft.position = { player.shape.getPosition().x - 120.f, player.shape.getPosition().y - 40.f };
-        ft.color = sf::Color(140, 255, 160);
         ft.timer = 2.5f;
         floatingTexts.push_back(ft);
+
+        player.chamomileProtection = false; // расходуем эффект
     }
     else
     {

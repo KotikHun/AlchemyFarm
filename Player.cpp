@@ -150,6 +150,19 @@ void Player::update(float dt, float windowWidth, float windowHeight,
     if (speedBuffTimer > 0.f)
     {
         speedBuffTimer -= dt;
+        if (speedBuffTimer < 0.f) speedBuffTimer = 0.f;
+    }
+
+    // Регенерация энергии от ромашковых настоек
+    if (regenTimer > 0.f)
+    {
+        regenTimer -= dt;
+        restoreEnergy(regenRate * dt);
+        if (regenTimer <= 0.f)
+        {
+            regenTimer = 0.f;
+            regenRate = 0.f;
+        }
     }
 
     float currentSpeed = SPEED;

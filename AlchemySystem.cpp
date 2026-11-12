@@ -2,159 +2,202 @@
 
 AlchemySystem::AlchemySystem()
 {
-    // === ЗЕЛЬЯ ЭНЕРГИИ ===
-    // 1. Зелье энергии (базовый рецепт из ягод и волокна)
+    // =========================================================================
+    // 1. РОМАШКОВАЯ ЛИНЕЙКА (Защита от бессонницы + Регенерация)
+    // =========================================================================
+    // 1.1 Ромашковый отвар (Слабая насыщенность) — сырье
     {
         PotionRecipe r;
-        r.resultId = "energy_potion";
-        r.name = "Зелье энергии";
+        r.resultId = "chamomile_decoction";
+        r.name = "Ромашковый отвар";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"berry", 1}, {"fiber", 1} };
-        r.description = "Восстанавливает силы усталого фермера (+50 энергии).";
-        r.effectText = "+50 энергии при употреблении (ПКМ)";
-        r.formulaText = "1 Ягода + 1 Волокно";
-        r.discovered = true; // Первое начальное знание алхимика
+        r.requiredIngredients = { {"chamomile", 2} };
+        r.description = "Легкий золотистый отвар из цветков ромашки в изящной колбочке. Защищает от бессонной ночи.";
+        r.effectText = "100% энергии утром даже при обмороке (+20 сейчас)";
+        r.formulaText = "2 Ромашки";
+        r.discovered = true;
         recipes.push_back(r);
     }
-
-    // 2. Лесной тоник (из ягод и листьев)
+    // 1.2 Ромашковый отвар (Слабая насыщенность) — из пыльцы
     {
         PotionRecipe r;
-        r.resultId = "energy_potion";
-        r.name = "Лесной тоник энергии";
+        r.resultId = "chamomile_decoction";
+        r.name = "Ромашковый отвар (из пыльцы)";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"berry", 1}, {"leaves", 1} };
-        r.description = "Освежающий травяной отвар из ягод и свежих древесных листьев.";
-        r.effectText = "+50 энергии при употреблении (ПКМ)";
-        r.formulaText = "1 Ягода + 1 Листья";
+        r.requiredIngredients = { {"chamomile_powder", 1} };
+        r.description = "Быстрый отвар из тонко перетертой ромашковой пыльцы.";
+        r.effectText = "100% энергии утром даже при обмороке (+20 сейчас)";
+        r.formulaText = "1 Ромашковая пыльца";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // 3. Эссенция бодрости (из порошков высшей очистки)
+    // 1.3 Густой ромашковый чай (Средняя насыщенность) — сырье
     {
         PotionRecipe r;
-        r.resultId = "energy_potion";
-        r.name = "Эссенция бодрости";
+        r.resultId = "chamomile_tea";
+        r.name = "Густой ромашковый чай";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"berry_powder", 1}, {"herbal_powder", 1} };
-        r.description = "Концентрированный эликсир из тонко перетертых компонентов.";
-        r.effectText = "+50 энергии при употреблении (ПКМ)";
-        r.formulaText = "1 Ягодный порошок + 1 Травяной порошок";
+        r.requiredIngredients = { {"chamomile", 4} };
+        r.description = "Янтарно-медовый настой ромашки в трапециевидной колбе. Дарит глубокий отдых и восстанавливает дыхание.";
+        r.effectText = "100% энергии утром + регенерация (+1/сек на 30 сек)";
+        r.formulaText = "4 Ромашки";
+        r.discovered = false;
+        recipes.push_back(r);
+    }
+    // 1.4 Густой ромашковый чай (Средняя насыщенность) — из пыльцы
+    {
+        PotionRecipe r;
+        r.resultId = "chamomile_tea";
+        r.name = "Густой ромашковый чай (из пыльцы)";
+        r.baseId = "water_flask";
+        r.requiredIngredients = { {"chamomile_powder", 2} };
+        r.description = "Концентрированный чай на ромашковой пыльце.";
+        r.effectText = "100% энергии утром + регенерация (+1/сек на 30 сек)";
+        r.formulaText = "2 Ромашковой пыльцы";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // === ЗЕЛЬЯ СКОРОСТИ ===
-    // 4. Зелье скорости (из листьев и семян)
+    // 1.5 Истинная настойка ромашки (Максимальная насыщенность) — только порошок
     {
         PotionRecipe r;
-        r.resultId = "speed_potion";
-        r.name = "Зелье скорости";
+        r.resultId = "chamomile_tincture";
+        r.name = "Истинная настойка ромашки";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"leaves", 1}, {"seeds", 1} };
-        r.description = "Легкий отвар из древесных листьев и семян.";
-        r.effectText = "+40% скорости бега на 30 секунд";
-        r.formulaText = "1 Листья + 1 Семя";
+        r.requiredIngredients = { {"chamomile_powder", 3} };
+        r.description = "Изумрудный концентрат максимальной насыщенности из ромашковой пыльцы в массивном флаконе.";
+        r.effectText = "100% энергии утром + мощная регенерация (+3/сек на 30 сек)";
+        r.formulaText = "3 Ромашковой пыльцы";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // 5. Зелье легкости (из волокна и семян)
+    // =========================================================================
+    // 2. ЯГОДНАЯ ЛИНЕЙКА (Мгновенные всплески бодрости)
+    // =========================================================================
+    // 2.1 Ягодный морс (Слабая насыщенность) — сырье
     {
         PotionRecipe r;
-        r.resultId = "speed_potion";
-        r.name = "Зелье легкости";
+        r.resultId = "berry_juice";
+        r.name = "Ягодный морс";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"fiber", 1}, {"seeds", 1} };
-        r.description = "Облегчающий шаг травяной отвар из сухого волокна и семян.";
-        r.effectText = "+40% скорости бега на 30 секунд";
-        r.formulaText = "1 Волокно + 1 Семя";
+        r.requiredIngredients = { {"berry", 2} };
+        r.description = "Освежающий кисло-сладкий напиток из лесных ягод в маленькой колбе.";
+        r.effectText = "+35 энергии мгновенно";
+        r.formulaText = "2 Ягоды";
+        r.discovered = true;
+        recipes.push_back(r);
+    }
+    // 2.2 Ягодный морс (Слабая насыщенность) — из порошка
+    {
+        PotionRecipe r;
+        r.resultId = "berry_juice";
+        r.name = "Ягодный морс (из порошка)";
+        r.baseId = "water_flask";
+        r.requiredIngredients = { {"berry_powder", 1} };
+        r.description = "Быстрый ягодный морс из перетертых ягод.";
+        r.effectText = "+35 энергии мгновенно";
+        r.formulaText = "1 Ягодный порошок";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // 6. Зелье стремительности (из ягод и семян)
+    // 2.3 Спелый ягодный взвар (Средняя насыщенность) — сырье
     {
         PotionRecipe r;
-        r.resultId = "speed_potion";
-        r.name = "Зелье стремительности";
+        r.resultId = "berry_decoction";
+        r.name = "Спелый ягодный взвар";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"berry", 1}, {"seeds", 2} };
-        r.description = "Придает необычайную легкость шагу и ускоряет работу.";
-        r.effectText = "+40% скорости бега на 30 секунд";
-        r.formulaText = "1 Ягода + 2 Семени";
+        r.requiredIngredients = { {"berry", 4} };
+        r.description = "Насыщенный рубиновый взвар из спелых ягод в конической колбе. Быстро возвращает силы.";
+        r.effectText = "+70 энергии мгновенно";
+        r.formulaText = "4 Ягоды";
+        r.discovered = false;
+        recipes.push_back(r);
+    }
+    // 2.4 Спелый ягодный взвар (Средняя насыщенность) — из порошка
+    {
+        PotionRecipe r;
+        r.resultId = "berry_decoction";
+        r.name = "Спелый ягодный взвар (из порошка)";
+        r.baseId = "water_flask";
+        r.requiredIngredients = { {"berry_powder", 2} };
+        r.description = "Густой ягодный взвар из двух мер ягодного порошка.";
+        r.effectText = "+70 энергии мгновенно";
+        r.formulaText = "2 Ягодных порошка";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // 7. Настойка ветра (с ягодным порошком)
+    // 2.5 Концентрированный ягодный эликсир (Максимальная насыщенность) — только порошок
     {
         PotionRecipe r;
-        r.resultId = "speed_potion";
-        r.name = "Настойка ветра";
+        r.resultId = "berry_elixir";
+        r.name = "Концентрированный ягодный эликсир";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"berry_powder", 1}, {"seeds", 2} };
-        r.description = "Быстродействующий эликсир скорости длительного действия.";
-        r.effectText = "+40% скорости бега на 30 секунд";
-        r.formulaText = "1 Ягодный порошок + 2 Семени";
+        r.requiredIngredients = { {"berry_powder", 3} };
+        r.description = "Густой фиолетово-малиновый эликсир предельной насыщенности в тяжелом флаконе.";
+        r.effectText = "+110 энергии мгновенно";
+        r.formulaText = "3 Ягодных порошка";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // === ЭЛИКСИРЫ РОСТА ===
-    // 8. Эликсир роста (волокно и семя)
+    // =========================================================================
+    // 3. КОМБИНИРОВАННАЯ ЛИНЕЙКА (Ягода + Ромашка)
+    // =========================================================================
+    // 3.1 Лесной сбор (Слабая насыщенность)
     {
         PotionRecipe r;
-        r.resultId = "growth_potion";
-        r.name = "Эликсир роста";
+        r.resultId = "forest_infusion";
+        r.name = "Лесной сбор";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"fiber", 2}, {"seeds", 1} };
-        r.description = "Магическая эссенция плодородия земли.";
-        r.effectText = "Мгновенно ускоряет рост посевов вокруг";
-        r.formulaText = "2 Волокна + 1 Семя";
+        r.requiredIngredients = { {"berry", 1}, {"chamomile", 1} };
+        r.description = "Гармоничный настой из лесных ягод и ромашки в компактной колбе.";
+        r.effectText = "+40 энергии + 100% энергии на следующее утро";
+        r.formulaText = "1 Ягода + 1 Ромашка";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // 9. Природный стимулятор роста (листья и семя)
+    // 3.2 Тонизирующий настой (Средняя насыщенность) — сырье
     {
         PotionRecipe r;
-        r.resultId = "growth_potion";
-        r.name = "Природный стимулятор роста";
+        r.resultId = "tonic_infusion";
+        r.name = "Тонизирующий настой";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"leaves", 2}, {"seeds", 1} };
-        r.description = "Концентрат соков свежей листвы для проращивания культур.";
-        r.effectText = "Мгновенно ускоряет рост посевов вокруг";
-        r.formulaText = "2 Листьев + 1 Семя";
+        r.requiredIngredients = { {"berry", 2}, {"chamomile", 2} };
+        r.description = "Благородный сиреневый настой в колбе-трапеции. Бодрит тело и защищает от усталости.";
+        r.effectText = "+80 энергии + регенерация (+2/сек) + 100% энергии утром";
+        r.formulaText = "2 Ягоды + 2 Ромашки";
+        r.discovered = false;
+        recipes.push_back(r);
+    }
+    // 3.3 Тонизирующий настой (Средняя насыщенность) — порошки
+    {
+        PotionRecipe r;
+        r.resultId = "tonic_infusion";
+        r.name = "Тонизирующий настой (из порошков)";
+        r.baseId = "water_flask";
+        r.requiredIngredients = { {"berry_powder", 1}, {"chamomile_powder", 1} };
+        r.description = "Тонизирующий настой на тонких порошках ягод и ромашки.";
+        r.effectText = "+80 энергии + регенерация (+2/сек) + 100% энергии утром";
+        r.formulaText = "1 Ягодный порошок + 1 Ромашковая пыльца";
         r.discovered = false;
         recipes.push_back(r);
     }
 
-    // 10. Раствор плодородия (травяной порошок и семя)
+    // 3.4 Великий алхимический нектар (Максимальная насыщенность) — порошки
     {
         PotionRecipe r;
-        r.resultId = "growth_potion";
-        r.name = "Раствор плодородия";
+        r.resultId = "grand_nectar";
+        r.name = "Великий алхимический нектар";
         r.baseId = "water_flask";
-        r.requiredIngredients = { {"herbal_powder", 1}, {"seeds", 1} };
-        r.description = "Питательный концентрат пыльцы трав для всходов.";
-        r.effectText = "Мгновенно ускоряет рост посевов вокруг";
-        r.formulaText = "1 Травяной порошок + 1 Семя";
-        r.discovered = false;
-        recipes.push_back(r);
-    }
-
-    // 11. Великий эликсир роста
-    {
-        PotionRecipe r;
-        r.resultId = "growth_potion";
-        r.name = "Великий эликсир роста";
-        r.baseId = "water_flask";
-        r.requiredIngredients = { {"herbal_powder", 1}, {"fiber", 1}, {"seeds", 1} };
-        r.description = "Усиленный раствор плодородия из травяной пыльцы.";
-        r.effectText = "Мгновенно ускоряет рост посевов вокруг";
-        r.formulaText = "1 Травяной порошок + 1 Волокно + 1 Семя";
+        r.requiredIngredients = { {"berry_powder", 2}, {"chamomile_powder", 2} };
+        r.description = "Шедевр алхимии из двух порошков высшей очистки. Густой сияющий нектар в квадратном флаконе.";
+        r.effectText = "+120 энергии + регенерация (+3/сек) + скорость +40% + 100% утром";
+        r.formulaText = "2 Ягодных порошка + 2 Ромашковой пыльцы";
         r.discovered = false;
         recipes.push_back(r);
     }
@@ -277,6 +320,7 @@ std::string AlchemySystem::getGrindResultId() const
 {
     if (mortarInput.id == "berry") return "berry_powder";
     if (mortarInput.id == "leaves" || mortarInput.id == "fiber") return "herbal_powder";
+    if (mortarInput.id == "chamomile") return "chamomile_powder";
     return "";
 }
 

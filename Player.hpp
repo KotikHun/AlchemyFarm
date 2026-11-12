@@ -62,6 +62,9 @@ struct Player {
 
     // Эффекты зелий
     float speedBuffTimer = 0.f;
+    bool chamomileProtection = false;
+    float regenTimer = 0.f;
+    float regenRate = 0.f;
 
     Player();
 

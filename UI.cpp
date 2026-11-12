@@ -43,6 +43,18 @@ UI::UI()
     loadIcon("cauldron", "assets/sprites/icons/cauldron.png");
     loadIcon("carpet", "assets/sprites/icons/carpet.png");
     loadIcon("window", "assets/sprites/icons/window.png");
+    loadIcon("chamomile", "assets/sprites/icons/chamomile.png");
+    loadIcon("chamomile_seeds", "assets/sprites/icons/chamomile_seeds.png");
+    loadIcon("chamomile_powder", "assets/sprites/icons/chamomile_powder.png");
+    loadIcon("chamomile_decoction", "assets/sprites/icons/chamomile_decoction.png");
+    loadIcon("chamomile_tea", "assets/sprites/icons/chamomile_tea.png");
+    loadIcon("chamomile_tincture", "assets/sprites/icons/chamomile_tincture.png");
+    loadIcon("berry_juice", "assets/sprites/icons/berry_juice.png");
+    loadIcon("berry_decoction", "assets/sprites/icons/berry_decoction.png");
+    loadIcon("berry_elixir", "assets/sprites/icons/berry_elixir.png");
+    loadIcon("forest_infusion", "assets/sprites/icons/forest_infusion.png");
+    loadIcon("tonic_infusion", "assets/sprites/icons/tonic_infusion.png");
+    loadIcon("grand_nectar", "assets/sprites/icons/grand_nectar.png");
 
     // 3. Тексты статистики
     dayText = std::make_unique<sf::Text>(font);
