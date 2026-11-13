@@ -20,7 +20,8 @@ bool PlayerInteractionController::handleUseAction(Player& player,
                                                  bool& isTransitioningSleep,
                                                  bool isTransitioningWake,
                                                  float& fadeTarget,
-                                                 SleepReport& sleepReport)
+                                                 SleepReport& sleepReport,
+                                                 bool isRaining)
 {
     sf::Vector2f ppos = player.shape.getPosition();
     const Item& activeItem = inv.getSlot(activeSlot);
@@ -118,7 +119,7 @@ bool PlayerInteractionController::handleUseAction(Player& player,
     // Взаимодействие с миром (грядки, сорняки, деревья)
     if (!house.isInside)
     {
-        world.interact(player, activeItem.id, inv, droppedItems);
+        world.interact(player, activeItem.id, inv, droppedItems, isRaining);
     }
     return true;
 }

@@ -58,13 +58,21 @@ World::World()
     }
     saplingSprite = std::make_unique<sf::Sprite>(saplingTexture);
 
-    // 6. Посевы (4 стадии)
+    // 6. Посевы ягод (4 стадии)
     if (!cropsTexture.loadFromFile("assets/sprites/crops.png"))
     {
         std::cerr << "World: cannot load crops.png" << std::endl;
     }
     cropsSprite = std::make_unique<sf::Sprite>(cropsTexture);
     cropsSprite->setScale({ 2.f, 2.f });
+
+    // 7. Посевы ромашки (4 стадии: семена -> New Piskel 5 -> New Piskel 6 -> цветущая ромашка)
+    if (!chamomileTexture.loadFromFile("assets/sprites/crops/chamomile/chamomile_strip.png"))
+    {
+        std::cerr << "World: cannot load chamomile_strip.png" << std::endl;
+    }
+    chamomileSprite = std::make_unique<sf::Sprite>(chamomileTexture);
+    chamomileSprite->setScale({ 1.f, 1.f });
 
     // Генерация карты
     generateNewMap(0);
@@ -277,20 +285,32 @@ void World::draw(sf::RenderWindow& window)
                 }
             }
 
-            // Отрисовка растения (4 стадии роста)
-            if (t.type == 1 && t.plantStage > 0 && cropsSprite)
+            // Отрисовка растения (стадии роста)
+            if (t.type == 1 && t.plantStage > 0)
             {
-                int col = 0;
-                if (t.plantStage == 1) col = 0;      // 1: Семена
-                else if (t.plantStage == 2) col = 1; // 2: Маленький росток
-                else if (t.plantStage == 3) col = 3; // 3: Куст с бутонами
-                else if (t.plantStage == 4) col = 5; // 4: Спелые ягоды
+                if (t.cropType == 1 && chamomileSprite)
+                {
+                    // Ромашка (4 стадии в полоске 128x32, размер кадра 32x32)
+                    // 1: Семена (Piskel 8) -> 2: Росток (Piskel 5) -> 3: Подросший (Piskel 6) -> 4: Финальный цветок
+                    int frame = std::clamp(t.plantStage - 1, 0, 3);
+                    chamomileSprite->setTextureRect(sf::IntRect({ frame * 32, 0 }, { 32, 32 }));
+                    chamomileSprite->setPosition({ px, py });
+                    window.draw(*chamomileSprite);
+                }
+                else if (cropsSprite)
+                {
+                    // Ягоды: 4 стадии роста
+                    int col = 0;
+                    if (t.plantStage == 1) col = 0;      // 1: Семена
+                    else if (t.plantStage == 2) col = 1; // 2: Маленький росток
+                    else if (t.plantStage == 3) col = 3; // 3: Куст с бутонами
+                    else if (t.plantStage == 4) col = 5; // 4: Спелые ягоды
 
-                int row = (t.cropType == 1) ? 1 : 0;
-                cropsSprite->setTextureRect(sf::IntRect({ col * 16, row * 32 }, { 16, 32 }));
-                // Растение 32x64 (16x32 * 2x), смещаем вверх так чтобы низ попадал на грядку
-                cropsSprite->setPosition({ px, py - 32.f });
-                window.draw(*cropsSprite);
+                    cropsSprite->setTextureRect(sf::IntRect({ col * 16, 0 }, { 16, 32 }));
+                    // Растение 32x64 (16x32 * 2x), смещаем вверх так чтобы низ попадал на грядку
+                    cropsSprite->setPosition({ px, py - 32.f });
+                    window.draw(*cropsSprite);
+                }
             }
         }
     }
@@ -389,10 +409,35 @@ void World::updateGrowth()
         {
             Tile& t = map[y][x];
 
-            // Политые растения растут (до 4 стадии)
+            // Политые растения растут
             if (t.watered && t.plantStage > 0 && t.plantStage < 4)
             {
-                t.plantStage++;
+                if (t.cropType == 1)
+                {
+                    // Ромашка: 1 день семена -> 2 день росток -> 3 и 4 день подросший -> 5 день финальный
+                    t.daysGrown++;
+                    if (t.daysGrown == 1)
+                    {
+                        t.plantStage = 2; // День 2: росток (Piskel 5)
+                    }
+                    else if (t.daysGrown == 2)
+                    {
+                        t.plantStage = 3; // День 3: подросший (Piskel 6)
+                    }
+                    else if (t.daysGrown == 3)
+                    {
+                        t.plantStage = 3; // День 4: подросший (Piskel 6)
+                    }
+                    else if (t.daysGrown >= 4)
+                    {
+                        t.plantStage = 4; // День 5: финальный (спелая ромашка)
+                    }
+                }
+                else
+                {
+                    t.daysGrown++;
+                    t.plantStage++;
+                }
             }
             t.watered = false;
         }
@@ -481,7 +526,7 @@ std::vector<sf::FloatRect> World::getObstacles() const
 // ============================================
 // ВЗАИМОДЕЙСТВИЕ
 // ============================================
-void World::interact(Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems)
+void World::interact(Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems, bool isRaining)
 {
     sf::Vector2f pos = player.shape.getPosition();
     float centerX = pos.x + Player::SIZE / 2.f;
@@ -603,6 +648,10 @@ void World::interact(Player& player, const std::string& itemId, Inventory& inv, 
         if (t.type == 0)
         {
             t.type = 1; // вскопка
+            if (isRaining)
+            {
+                t.watered = true; // новая грядка во время дождя сразу становится политой
+            }
         }
         else if (t.type == 1 && t.plantStage > 0)
         {

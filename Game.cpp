@@ -957,7 +957,7 @@ void Game::handleEvents()
                     return;
                 }
 
-                PlayerInteractionController::handleUseAction(player, inv, activeSlot, world, house, chests, furniture, nearbyChest, nearbyFurnitureIdx, alchemy, placement, sound, itemDB, floatingTexts, droppedItems, isTransitioningSleep, isTransitioningWake, fadeTarget, sleepReport);
+                PlayerInteractionController::handleUseAction(player, inv, activeSlot, world, house, chests, furniture, nearbyChest, nearbyFurnitureIdx, alchemy, placement, sound, itemDB, floatingTexts, droppedItems, isTransitioningSleep, isTransitioningWake, fadeTarget, sleepReport, timeSystem.isRaining);
                 return;
             }
 
@@ -1260,6 +1260,21 @@ void Game::update(float dt)
     // 1. Время и суточный цикл
     timeSystem.update(dt);
     weather.update(dt, timeSystem.isRaining);
+
+    // Дождь автоматически поливает все грядки на улице
+    if (timeSystem.isRaining)
+    {
+        for (int y = 0; y < World::HEIGHT; ++y)
+        {
+            for (int x = 0; x < World::WIDTH; ++x)
+            {
+                if (world.map[y][x].type == 1 && !world.map[y][x].watered)
+                {
+                    world.map[y][x].watered = true;
+                }
+            }
+        }
+    }
 
     // Комендантский час: если игрок не лег спать до 02:00 — потеря сознания!
     if (timeSystem.hasPassedOut())

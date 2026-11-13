@@ -41,9 +41,13 @@ struct World {
     sf::Texture saplingTexture;
     std::unique_ptr<sf::Sprite> saplingSprite;
 
-    // Спрайт посевов (Spring Crops, 4 стадии роста)
+    // Спрайт посевов ягод (Spring Crops, 4 стадии роста)
     sf::Texture cropsTexture;
     std::unique_ptr<sf::Sprite> cropsSprite;
+
+    // Спрайт посевов ромашки (Chamomile, 4 стадии роста: 128x32)
+    sf::Texture chamomileTexture;
+    std::unique_ptr<sf::Sprite> chamomileSprite;
 
     // Размер карты
     static constexpr int WIDTH = 30;
@@ -66,7 +70,7 @@ struct World {
 
     std::vector<sf::FloatRect> getObstacles() const;
 
-    void interact(Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems);
+    void interact(Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems, bool isRaining = false);
 
     sf::IntRect getFarmlandRect(int x, int y) const;
     sf::IntRect getWaterRect(int x, int y) const;

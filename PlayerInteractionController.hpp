@@ -35,7 +35,8 @@ public:
                                 bool& isTransitioningSleep,
                                 bool isTransitioningWake,
                                 float& fadeTarget,
-                                struct SleepReport& sleepReport);
+                                struct SleepReport& sleepReport,
+                                bool isRaining = false);
 
     static bool handleDropItem(Player& player,
                                Inventory& inv,

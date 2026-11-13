@@ -101,15 +101,15 @@ void Player::update(float dt, float windowWidth, float windowHeight,
             {
                 if (dirY > 0)
                 {
-                    rowOffset = 0; // Лейка: Вниз
+                    rowOffset = 0; // Лейка: Вниз (строка 9)
                 }
                 else if (dirY < 0)
                 {
-                    rowOffset = 2; // Лейка: Вверх
+                    rowOffset = 1; // Лейка: Вверх (строка 10)
                 }
                 else
                 {
-                    rowOffset = 1; // Лейка: Вправо / Влево
+                    rowOffset = 2; // Лейка: Вправо / Влево (строка 11)
                     scaleX = (dirX < 0) ? -2.0f : 2.0f;
                 }
             }
