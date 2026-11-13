@@ -55,6 +55,7 @@ UI::UI()
     loadIcon("forest_infusion", "assets/sprites/icons/forest_infusion.png");
     loadIcon("tonic_infusion", "assets/sprites/icons/tonic_infusion.png");
     loadIcon("grand_nectar", "assets/sprites/icons/grand_nectar.png");
+    loadIcon("acorn", "assets/sprites/icons/acorn.png");
 
     // 3. Тексты статистики
     dayText = std::make_unique<sf::Text>(font);

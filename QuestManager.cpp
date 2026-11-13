@@ -148,10 +148,10 @@ void QuestManager::initShopCatalog()
     shopCatalog.push_back(i3);
 
     ShopCatalogItem i4;
-    i4.itemId = "chamomile_decoction";
-    i4.name = "Ромашковый отвар";
-    i4.price = 65;
-    i4.desc = "Защищает от бессонной ночи (+20 сил).";
+    i4.itemId = "stone";
+    i4.name = "Каменные блоки (3 шт)";
+    i4.price = 35;
+    i4.desc = "Строительный гранит для верстака и построек.";
     shopCatalog.push_back(i4);
 
     ShopCatalogItem i5;

@@ -13,7 +13,7 @@ AlchemySystem::AlchemySystem()
         r.baseId = "water_flask";
         r.requiredIngredients = { {"chamomile", 2} };
         r.description = "Легкий золотистый отвар из цветков ромашки в изящной колбочке. Защищает от бессонной ночи.";
-        r.effectText = "100% энергии утром даже при обмороке (+20 сейчас)";
+        r.effectText = "+20 сил сейчас + 100% энергии утром даже при обмороке";
         r.formulaText = "2 Ромашки";
         r.discovered = true;
         recipes.push_back(r);
@@ -26,7 +26,7 @@ AlchemySystem::AlchemySystem()
         r.baseId = "water_flask";
         r.requiredIngredients = { {"chamomile_powder", 1} };
         r.description = "Быстрый отвар из тонко перетертой ромашковой пыльцы.";
-        r.effectText = "100% энергии утром даже при обмороке (+20 сейчас)";
+        r.effectText = "+20 сил сейчас + 100% энергии утром даже при обмороке";
         r.formulaText = "1 Ромашковая пыльца";
         r.discovered = false;
         recipes.push_back(r);
@@ -40,7 +40,7 @@ AlchemySystem::AlchemySystem()
         r.baseId = "water_flask";
         r.requiredIngredients = { {"chamomile", 4} };
         r.description = "Янтарно-медовый настой ромашки в трапециевидной колбе. Дарит глубокий отдых и восстанавливает дыхание.";
-        r.effectText = "100% энергии утром + регенерация (+1/сек на 30 сек)";
+        r.effectText = "+45 сил сейчас + регенерация (+1/сек на 30 сек) + 100% энергии утром";
         r.formulaText = "4 Ромашки";
         r.discovered = false;
         recipes.push_back(r);
@@ -53,7 +53,7 @@ AlchemySystem::AlchemySystem()
         r.baseId = "water_flask";
         r.requiredIngredients = { {"chamomile_powder", 2} };
         r.description = "Концентрированный чай на ромашковой пыльце.";
-        r.effectText = "100% энергии утром + регенерация (+1/сек на 30 сек)";
+        r.effectText = "+45 сил сейчас + регенерация (+1/сек на 30 сек) + 100% энергии утром";
         r.formulaText = "2 Ромашковой пыльцы";
         r.discovered = false;
         recipes.push_back(r);
@@ -67,7 +67,7 @@ AlchemySystem::AlchemySystem()
         r.baseId = "water_flask";
         r.requiredIngredients = { {"chamomile_powder", 3} };
         r.description = "Изумрудный концентрат максимальной насыщенности из ромашковой пыльцы в массивном флаконе.";
-        r.effectText = "100% энергии утром + мощная регенерация (+3/сек на 30 сек)";
+        r.effectText = "+75 сил сейчас + мощная регенерация (+3/сек на 30 сек) + 100% энергии утром";
         r.formulaText = "3 Ромашковой пыльцы";
         r.discovered = false;
         recipes.push_back(r);
@@ -319,7 +319,7 @@ bool AlchemySystem::canGrind() const
 std::string AlchemySystem::getGrindResultId() const
 {
     if (mortarInput.id == "berry") return "berry_powder";
-    if (mortarInput.id == "leaves" || mortarInput.id == "fiber") return "herbal_powder";
+    if (mortarInput.id == "fiber") return "herbal_powder";
     if (mortarInput.id == "chamomile") return "chamomile_powder";
     return "";
 }

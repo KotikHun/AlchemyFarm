@@ -618,7 +618,7 @@ void AlchemyUI::drawMortarStation(sf::RenderWindow& window,
 
     if (!alchemy.mortarInput.isEmpty())
     {
-        ui.drawItemIcon(window, inX - 9.f, inY - 9.f, alchemy.mortarInput);
+        ui.drawItemIcon(window, inX, inY, alchemy.mortarInput);
     }
 
     // Стрелочка ->
@@ -648,7 +648,7 @@ void AlchemyUI::drawMortarStation(sf::RenderWindow& window,
 
     if (!alchemy.mortarOutput.isEmpty())
     {
-        ui.drawItemIcon(window, outX - 9.f, outY - 9.f, alchemy.mortarOutput);
+        ui.drawItemIcon(window, outX, outY, alchemy.mortarOutput);
     }
 
     // Прогресс-бар перетирания

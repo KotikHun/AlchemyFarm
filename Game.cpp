@@ -1259,6 +1259,7 @@ void Game::update(float dt)
 
     // 1. Время и суточный цикл
     timeSystem.update(dt);
+    weather.update(dt, timeSystem.isRaining);
 
     // Комендантский час: если игрок не лег спать до 02:00 — потеря сознания!
     if (timeSystem.hasPassedOut())
@@ -1901,6 +1902,9 @@ void Game::render()
     {
         drawPlacementGrid(window);
     }
+
+    // Погода (дождь на открытом воздухе)
+    weather.draw(window, timeSystem.isRaining, house.isInside, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
     // 2. Ночное освещение и источники света
     std::vector<std::pair<sf::Vector2f, float>> lights;

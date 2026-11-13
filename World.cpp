@@ -51,6 +51,13 @@ World::World()
     treeSprite = std::make_unique<sf::Sprite>(treeTexture);
     treeSprite->setScale({ 2.f, 2.f });
 
+    // Саженцы дуба
+    if (!saplingTexture.loadFromFile("assets/sprites/sapling.png"))
+    {
+        std::cerr << "World: cannot load sapling.png" << std::endl;
+    }
+    saplingSprite = std::make_unique<sf::Sprite>(saplingTexture);
+
     // 6. Посевы (4 стадии)
     if (!cropsTexture.loadFromFile("assets/sprites/crops.png"))
     {
@@ -332,18 +339,41 @@ void World::drawTrees(sf::RenderWindow& window, const Player& player)
 
     for (const auto& tr : trees)
     {
-        treeSprite->setPosition(tr.position);
+        if (tr.stage == 2)
+        {
+            treeSprite->setScale({ 2.f, 2.f });
+            treeSprite->setPosition(tr.position);
 
-        if (tr.isBehindCrown(pcx, pcy))
-        {
-            treeSprite->setColor(sf::Color(255, 255, 255, 125)); // 50% прозрачность
+            if (tr.isBehindCrown(pcx, pcy))
+            {
+                treeSprite->setColor(sf::Color(255, 255, 255, 125)); // 50% прозрачность
+            }
+            else
+            {
+                treeSprite->setColor(sf::Color(255, 255, 255, 255));
+            }
+
+            window.draw(*treeSprite);
         }
-        else
+        else if (tr.stage == 1)
         {
+            // Молодое дерево (средняя стадия): пропорционально меньше взрослого дуба
+            treeSprite->setScale({ 1.25f, 1.25f });
+            float trunkBaseX = tr.position.x + 48.f + 16.f;
+            float trunkBaseY = tr.position.y + 110.f + 32.f;
+            treeSprite->setPosition({ trunkBaseX - 40.f, trunkBaseY - 100.f });
             treeSprite->setColor(sf::Color(255, 255, 255, 255));
+            window.draw(*treeSprite);
         }
-
-        window.draw(*treeSprite);
+        else // stage == 0: саженец
+        {
+            if (saplingSprite)
+            {
+                saplingSprite->setScale({ 1.f, 1.f });
+                saplingSprite->setPosition({ tr.position.x + 48.f, tr.position.y + 110.f });
+                window.draw(*saplingSprite);
+            }
+        }
     }
 }
 
@@ -352,6 +382,7 @@ void World::drawTrees(sf::RenderWindow& window, const Player& player)
 // ============================================
 void World::updateGrowth()
 {
+    // 1. Посевы культур на грядках
     for (int y = 0; y < HEIGHT; y++)
     {
         for (int x = 0; x < WIDTH; x++)
@@ -364,6 +395,25 @@ void World::updateGrowth()
                 t.plantStage++;
             }
             t.watered = false;
+        }
+    }
+
+    // 2. Деревья (растут долго: саженец 3 дня -> молодой дуб 4 дня -> взрослый дуб на 7 день)
+    for (auto& tr : trees)
+    {
+        if (tr.stage < 2)
+        {
+            tr.daysGrown++;
+            if (tr.daysGrown >= 3 && tr.stage == 0)
+            {
+                tr.stage = 1; // переход в молодое дерево
+                tr.hp = 2;
+            }
+            else if (tr.daysGrown >= 7 && tr.stage == 1)
+            {
+                tr.stage = 2; // полноценный взрослый дуб
+                tr.hp = 4;
+            }
         }
     }
 }
@@ -431,7 +481,7 @@ std::vector<sf::FloatRect> World::getObstacles() const
 // ============================================
 // ВЗАИМОДЕЙСТВИЕ
 // ============================================
-void World::interact(const Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems)
+void World::interact(Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems)
 {
     sf::Vector2f pos = player.shape.getPosition();
     float centerX = pos.x + Player::SIZE / 2.f;
@@ -464,14 +514,27 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
             {
                 it->hp--;
                 sf::Vector2f dropPos = { trunk.position.x, trunk.position.y };
-                // Свежие листья опадают с кроны дерева при каждом ударе
-                droppedItems.push_back(DroppedItem{ Item{ "leaves", 1 }, { dropPos.x + (std::rand() % 28 - 14.f), dropPos.y + (std::rand() % 16 - 8.f) }, 0.f });
 
                 if (it->hp <= 0)
                 {
-                    droppedItems.push_back(DroppedItem{ Item{ "wood", 4 }, dropPos, 0.f });
-                    droppedItems.push_back(DroppedItem{ Item{ "leaves", 3 }, { dropPos.x - 10.f, dropPos.y + 6.f }, 0.f });
-                    droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, { dropPos.x + 12.f, dropPos.y - 8.f }, 0.f });
+                    if (it->stage == 2)
+                    {
+                        // Взрослый дуб: 4 древесины + желуди (1-2 шт)
+                        droppedItems.push_back(DroppedItem{ Item{ "wood", 4 }, dropPos, 0.f });
+                        int acornCount = (std::rand() % 100 < 50) ? 2 : 1;
+                        droppedItems.push_back(DroppedItem{ Item{ "acorn", acornCount }, { dropPos.x + 8.f, dropPos.y - 6.f }, 0.f });
+                    }
+                    else if (it->stage == 1)
+                    {
+                        // Молодое дерево: 2 древесины + 1 желудь
+                        droppedItems.push_back(DroppedItem{ Item{ "wood", 2 }, dropPos, 0.f });
+                        droppedItems.push_back(DroppedItem{ Item{ "acorn", 1 }, dropPos, 0.f });
+                    }
+                    else
+                    {
+                        // Саженец: 1 желудь
+                        droppedItems.push_back(DroppedItem{ Item{ "acorn", 1 }, dropPos, 0.f });
+                    }
                     trees.erase(it);
                 }
             }
@@ -521,14 +584,6 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
                 {
                     removeObjectAt(targetX, targetY);
                     droppedItems.push_back(DroppedItem{ Item{ "fiber", 1 }, dropPos, 0.f });
-                    if (std::rand() % 2 == 0)
-                    {
-                        droppedItems.push_back(DroppedItem{ Item{ "leaves", 1 }, { dropPos.x + 8.f, dropPos.y - 4.f }, 0.f });
-                    }
-                    if (std::rand() % 3 == 0)
-                    {
-                        droppedItems.push_back(DroppedItem{ Item{ "seeds", 1 }, dropPos, 0.f });
-                    }
                 }
             }
             return;
@@ -587,6 +642,7 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
             t.cropType = 0;
             t.daysGrown = 0;
             inv.removeItem("seeds", 1);
+            player.useEnergy(1.f);
         }
     }
     else if (itemId == "chamomile_seeds")
@@ -597,6 +653,29 @@ void World::interact(const Player& player, const std::string& itemId, Inventory&
             t.cropType = 1;
             t.daysGrown = 0;
             inv.removeItem("chamomile_seeds", 1);
+            player.useEnergy(1.f);
+        }
+    }
+    else if (itemId == "acorn")
+    {
+        // Посадка дубового желудя (на свободную землю: траву или грядку)
+        if ((t.type == 0 || t.type == 1) && inv.countItem("acorn") > 0)
+        {
+            bool occupied = (getObjectAt(targetX, targetY) != nullptr);
+            for (const auto& tr : trees)
+            {
+                sf::FloatRect tb = tr.getTrunkBounds();
+                int tx = static_cast<int>(std::round(tb.position.x / TILE_SIZE));
+                int ty = static_cast<int>(std::round(tb.position.y / TILE_SIZE));
+                if (tx == targetX && ty == targetY) { occupied = true; break; }
+            }
+            if (!occupied)
+            {
+                Tree sapling = Tree::createAtTile(targetX, targetY, 1, 0); // stage 0, hp 1
+                trees.push_back(sapling);
+                inv.removeItem("acorn", 1);
+                player.useEnergy(1.f);
+            }
         }
     }
     else if (itemId == "watering_can")

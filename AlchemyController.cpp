@@ -325,7 +325,7 @@ bool AlchemyController::handleTableClick(float mx, float my,
                 const Item& item = inv.getSlot(slotIdx);
                 if (!item.isEmpty())
                 {
-                    if (item.id == "berry" || item.id == "leaves" || item.id == "fiber" || item.id == "chamomile")
+                    if (item.id == "berry" || item.id == "fiber" || item.id == "chamomile")
                     {
                         if (alchemy.mortarInput.isEmpty())
                         {
