@@ -211,7 +211,9 @@ bool SaveManager::saveGame(int slot,
             treeArr.push_back({
                 { "x", tr.position.x },
                 { "y", tr.position.y },
-                { "hp", tr.hp }
+                { "hp", tr.hp },
+                { "stage", tr.stage },
+                { "daysGrown", tr.daysGrown }
             });
         }
         j["world"]["trees"] = treeArr;
@@ -421,6 +423,8 @@ bool SaveManager::loadGame(int slot,
                 Tree tr;
                 tr.position = { trj.value("x", 0.f), trj.value("y", 0.f) };
                 tr.hp = trj.value("hp", 4);
+                tr.stage = trj.value("stage", 2);
+                tr.daysGrown = trj.value("daysGrown", (tr.stage == 2) ? 7 : 0);
                 world.trees.push_back(tr);
             }
         }

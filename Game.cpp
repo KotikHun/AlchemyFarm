@@ -1051,9 +1051,9 @@ void Game::handleEvents()
                         else if (actItm.id == "chest" || actItm.id == "bed" || actItm.id == "alchemist_table" ||
                                  actItm.id == "cauldron" || actItm.id == "carpet")
                         {
-                            sf::Vector2f ppos = player.shape.getPosition();
-                            int ptx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / 32.f);
-                            int pty = static_cast<int>((ppos.y + Player::SIZE / 2.f) / 32.f);
+                            sf::Vector2i tc = player.getTileCoords();
+                            int ptx = tc.x;
+                            int pty = tc.y;
                             int htx = static_cast<int>(mx / 32.f);
                             int hty = static_cast<int>(my / 32.f);
 
@@ -1454,12 +1454,11 @@ void Game::update(float dt)
     }
 
     sf::Vector2f ppos = player.shape.getPosition();
-    float pcx = ppos.x + Player::SIZE / 2.f;
-    float pcy = ppos.y + Player::SIZE / 2.f;
 
-    // Тайл строго перед персонажем (по направлению взгляда)
-    int ptx = static_cast<int>(pcx / 32.f);
-    int pty = static_cast<int>(pcy / 32.f);
+    // Тайл строго перед персонажем (по направлению взгляда от основания ног)
+    sf::Vector2i pTile = player.getTileCoords();
+    int ptx = pTile.x;
+    int pty = pTile.y;
     int targetTx = ptx + player.dirX;
     int targetTy = pty + player.dirY;
     sf::FloatRect targetTile({ targetTx * 32.f, targetTy * 32.f }, { 32.f, 32.f });
@@ -1493,7 +1492,7 @@ void Game::update(float dt)
                     }
                     else
                     {
-                        if (hasTool) playerPrompt = "[E / ЛКМ] Забрать сундук";
+                        if (hasTool) playerPrompt = "[E] Открыть | [ЛКМ x3] Забрать сундук";
                         else playerPrompt = "[E] Открыть сундук";
                     }
                     break;
@@ -1520,7 +1519,7 @@ void Game::update(float dt)
                     nearbyFurnitureIdx = static_cast<int>(i);
                     if (hasTool)
                     {
-                        playerPrompt = "[E / ЛКМ] Забрать предмет";
+                        playerPrompt = "[E] Использовать | [ЛКМ x3] Забрать";
                     }
                     else if (f.id == "bed")
                     {
@@ -1731,6 +1730,9 @@ void Game::render()
             w.draw(pin2);
         };
 
+        // Деревья сзади игрока (выше по Y)
+        world.drawTreesBehind(window, player);
+
         // 1. Сундуки, доска и мебель сзади игрока (выше по Y)
         if (320.f + 16.f <= ppos.y + 18.f)
         {
@@ -1891,8 +1893,8 @@ void Game::render()
             drawNoticeBoard(window);
         }
 
-        // Деревья
-        world.drawTrees(window, player);
+        // Деревья спереди игрока (ниже по Y)
+        world.drawTreesInFront(window, player);
 
         // Предметы на земле
         for (const auto& drop : droppedItems)
@@ -1901,8 +1903,9 @@ void Game::render()
         }
 
         // Маркер целевого тайла
-        int targetX = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirX;
-        int targetY = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirY;
+        sf::Vector2i targetCoords = player.getTargetTileCoords();
+        int targetX = targetCoords.x;
+        int targetY = targetCoords.y;
         if (targetX >= 0 && targetX < World::WIDTH && targetY >= 0 && targetY < World::HEIGHT)
         {
             targetMarker.setPosition({ targetX * World::TILE_SIZE, targetY * World::TILE_SIZE });

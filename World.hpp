@@ -63,6 +63,9 @@ struct World {
 
     void draw(sf::RenderWindow& window);
     void drawTrees(sf::RenderWindow& window, const Player& player);
+    void drawTreesBehind(sf::RenderWindow& window, const Player& player);
+    void drawTreesInFront(sf::RenderWindow& window, const Player& player);
+    void drawSingleTree(sf::RenderWindow& window, const Tree& tr, const Player& player);
     void updateGrowth();
 
     WorldObject* getObjectAt(int tx, int ty);

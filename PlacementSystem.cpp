@@ -5,6 +5,7 @@
 #include "Inventory.hpp"
 #include "ItemDatabase.hpp"
 #include "FloatingText.hpp"
+#include "DroppedItem.hpp"
 #include <cmath>
 #include <cstdlib>
 
@@ -18,7 +19,7 @@ void PlacementSystem::loadTextures()
     if (chestTexture.loadFromFile("assets/sprites/chest.png"))
     {
         chestSprite = std::make_unique<sf::Sprite>(chestTexture);
-        chestSprite->setTextureRect(sf::IntRect({ 0, 0 }, { 32, 32 }));
+        chestSprite->setTextureRect(sf::IntRect({ 0, 0 }, { 16, 16 }));
         chestSprite->setScale({ 2.f, 2.f });
     }
 
@@ -331,9 +332,9 @@ bool PlacementSystem::tryPlaceFurniture(const std::string& itemId,
                                        std::vector<FloatingText>& floatingTexts,
                                        const ItemDatabase& itemDB)
 {
-    sf::Vector2f ppos = player.shape.getPosition();
-    int tx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirX;
-    int ty = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirY;
+    sf::Vector2i tt = player.getTargetTileCoords();
+    int tx = tt.x;
+    int ty = tt.y;
     return tryPlaceFurnitureAt(itemId, tx, ty, house, world, player, inv, chests, furniture, floatingTexts, itemDB);
 }
 
@@ -345,10 +346,18 @@ bool PlacementSystem::tryPickupFurniture(const House& house,
                                         std::vector<FloatingText>& floatingTexts,
                                         const ItemDatabase& itemDB,
                                         Chest*& nearbyChest,
-                                        int& nearbyFurnitureIdx)
+                                        int& nearbyFurnitureIdx,
+                                        std::vector<DroppedItem>* droppedItems)
 {
     sf::Vector2f ppos = player.shape.getPosition();
-    sf::Vector2f checkPos = { ppos.x + 16.f + player.dirX * 28.f, ppos.y + 16.f + player.dirY * 28.f };
+    sf::Vector2f checkPos = { ppos.x + 16.f + player.dirX * 28.f, ppos.y + 22.f + player.dirY * 28.f };
+
+    // Проверяем таймер серии ударов: если прошло больше 1.2 секунды, серия сбрасывается
+    if (hitTimer.getElapsedTime().asSeconds() > 1.2f)
+    {
+        hitCount = 0;
+        hitTargetType = 0;
+    }
 
     // 1. Проверяем сундуки в текущей локации
     for (size_t i = 0; i < chests.size(); i++)
@@ -392,12 +401,42 @@ bool PlacementSystem::tryPickupFurniture(const House& house,
                     return true;
                 }
 
-                inv.addItem("chest", 1, 99);
+                // Проверка того же сундука
+                if (hitTargetType != 1 || hitTargetIndex != i)
+                {
+                    hitCount = 0;
+                    hitTargetType = 1;
+                    hitTargetIndex = i;
+                }
+
+                hitCount++;
+                hitTimer.restart();
+
+                if (hitCount < 3)
+                {
+                    FloatingText ft;
+                    ft.text = "Удар по сундуку (" + std::to_string(hitCount) + "/3)";
+                    ft.position = c.position;
+                    ft.color = sf::Color(255, 205, 90);
+                    ft.timer = 0.9f;
+                    floatingTexts.push_back(ft);
+                    return true;
+                }
+
+                // 3 удара достигнуты - убираем сундук!
+                hitCount = 0;
+                hitTargetType = 0;
+
+                bool added = inv.addItem("chest", 1, 99);
+                if (!added && droppedItems)
+                {
+                    droppedItems->push_back(DroppedItem{ Item{ "chest", 1 }, ppos, 0.f });
+                }
                 chests.erase(chests.begin() + i);
                 nearbyChest = nullptr;
 
                 FloatingText ft;
-                ft.text = "Сундук убран в инвентарь!";
+                ft.text = added ? "Сундук убран в инвентарь!" : "Сундук выпал на землю!";
                 ft.position = ppos;
                 ft.color = sf::Color(255, 230, 130);
                 ft.timer = 1.3f;
@@ -418,14 +457,45 @@ bool PlacementSystem::tryPickupFurniture(const House& house,
                                  { bounds.size.x + 24.f, bounds.size.y + 24.f });
             if (hitBox.contains(checkPos))
             {
+                if (hitTargetType != 2 || hitTargetIndex != i)
+                {
+                    hitCount = 0;
+                    hitTargetType = 2;
+                    hitTargetIndex = i;
+                }
+
+                hitCount++;
+                hitTimer.restart();
+
+                const ItemData* d = itemDB.find(f.id);
+                std::string fName = (d ? d->name : f.id);
+
+                if (hitCount < 3)
+                {
+                    FloatingText ft;
+                    ft.text = fName + ": Удар (" + std::to_string(hitCount) + "/3)";
+                    ft.position = { bounds.position.x, bounds.position.y };
+                    ft.color = sf::Color(255, 205, 90);
+                    ft.timer = 0.9f;
+                    floatingTexts.push_back(ft);
+                    return true;
+                }
+
+                // 3 удара достигнуты - убираем мебель!
+                hitCount = 0;
+                hitTargetType = 0;
+
                 std::string pickedId = f.id;
-                inv.addItem(pickedId, 1, 99);
+                bool added = inv.addItem(pickedId, 1, 99);
+                if (!added && droppedItems)
+                {
+                    droppedItems->push_back(DroppedItem{ Item{ pickedId, 1 }, ppos, 0.f });
+                }
                 furniture.erase(furniture.begin() + i);
                 nearbyFurnitureIdx = -1;
 
                 FloatingText ft;
-                const ItemData* d = itemDB.find(pickedId);
-                ft.text = (d ? d->name : pickedId) + " убран в инвентарь!";
+                ft.text = added ? (fName + " убран в инвентарь!") : (fName + " выпал на землю!");
                 ft.position = ppos;
                 ft.color = sf::Color(255, 230, 130);
                 ft.timer = 1.3f;
@@ -454,9 +524,9 @@ void PlacementSystem::drawPlacementGrid(sf::RenderWindow& window,
                                actItm.id == "carpet");
     if (!isHoldingFurniture) return;
 
-    sf::Vector2f ppos = player.shape.getPosition();
-    int ptx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / 32.f);
-    int pty = static_cast<int>((ppos.y + Player::SIZE / 2.f) / 32.f);
+    sf::Vector2i tc = player.getTileCoords();
+    int ptx = tc.x;
+    int pty = tc.y;
 
     // 1. Отрисовка клеток сетки в радиусе 3 тайлов
     sf::RectangleShape cell({ 32.f, 32.f });

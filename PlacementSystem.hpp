@@ -14,6 +14,7 @@ struct Player;
 struct Inventory;
 struct ItemDatabase;
 struct FloatingText;
+struct DroppedItem;
 
 // ============================================
 // СИСТЕМА РАЗМЕЩЕНИЯ И ДЕМОНТАЖА МЕБЕЛИ
@@ -77,6 +78,12 @@ public:
                            std::vector<FloatingText>& floatingTexts,
                            const ItemDatabase& itemDB);
 
+    // Трекинг демонтажа (3 быстрых удара инструментом)
+    int hitTargetType = 0; // 0 = none, 1 = chest, 2 = furniture
+    size_t hitTargetIndex = 0;
+    int hitCount = 0;
+    sf::Clock hitTimer;
+
     bool tryPickupFurniture(const House& house,
                             Player& player,
                             Inventory& inv,
@@ -85,7 +92,8 @@ public:
                             std::vector<FloatingText>& floatingTexts,
                             const ItemDatabase& itemDB,
                             Chest*& nearbyChest,
-                            int& nearbyFurnitureIdx);
+                            int& nearbyFurnitureIdx,
+                            std::vector<DroppedItem>* droppedItems = nullptr);
 
     void drawPlacementGrid(sf::RenderWindow& window,
                            const Inventory& inv,

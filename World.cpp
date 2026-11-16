@@ -349,7 +349,7 @@ void World::draw(sf::RenderWindow& window)
 // ============================================
 // ДЕРЕВЬЯ
 // ============================================
-void World::drawTrees(sf::RenderWindow& window, const Player& player)
+void World::drawSingleTree(sf::RenderWindow& window, const Tree& tr, const Player& player)
 {
     if (!treeSprite) return;
 
@@ -357,42 +357,73 @@ void World::drawTrees(sf::RenderWindow& window, const Player& player)
     float pcx = playerPos.x + Player::SIZE / 2.f;
     float pcy = playerPos.y + Player::SIZE / 2.f;
 
+    if (tr.stage == 2)
+    {
+        treeSprite->setScale({ 2.f, 2.f });
+        treeSprite->setPosition(tr.position);
+
+        if (tr.isBehindCrown(pcx, pcy))
+        {
+            treeSprite->setColor(sf::Color(255, 255, 255, 125)); // 50% прозрачность
+        }
+        else
+        {
+            treeSprite->setColor(sf::Color(255, 255, 255, 255));
+        }
+
+        window.draw(*treeSprite);
+    }
+    else if (tr.stage == 1)
+    {
+        // Молодое дерево (средняя стадия): пропорционально меньше взрослого дуба
+        treeSprite->setScale({ 1.25f, 1.25f });
+        float trunkBaseX = tr.position.x + 48.f + 16.f;
+        float trunkBaseY = tr.position.y + 110.f + 32.f;
+        treeSprite->setPosition({ trunkBaseX - 40.f, trunkBaseY - 100.f });
+        treeSprite->setColor(sf::Color(255, 255, 255, 255));
+        window.draw(*treeSprite);
+    }
+    else // stage == 0: саженец
+    {
+        if (saplingSprite)
+        {
+            saplingSprite->setScale({ 1.f, 1.f });
+            saplingSprite->setPosition({ tr.position.x + 48.f, tr.position.y + 110.f });
+            window.draw(*saplingSprite);
+        }
+    }
+}
+
+void World::drawTrees(sf::RenderWindow& window, const Player& player)
+{
     for (const auto& tr : trees)
     {
-        if (tr.stage == 2)
-        {
-            treeSprite->setScale({ 2.f, 2.f });
-            treeSprite->setPosition(tr.position);
+        drawSingleTree(window, tr, player);
+    }
+}
 
-            if (tr.isBehindCrown(pcx, pcy))
-            {
-                treeSprite->setColor(sf::Color(255, 255, 255, 125)); // 50% прозрачность
-            }
-            else
-            {
-                treeSprite->setColor(sf::Color(255, 255, 255, 255));
-            }
+void World::drawTreesBehind(sf::RenderWindow& window, const Player& player)
+{
+    float pGroundY = player.getGroundPosition().y;
+    for (const auto& tr : trees)
+    {
+        float trunkBaseY = tr.position.y + 110.f + 32.f;
+        if (trunkBaseY <= pGroundY)
+        {
+            drawSingleTree(window, tr, player);
+        }
+    }
+}
 
-            window.draw(*treeSprite);
-        }
-        else if (tr.stage == 1)
+void World::drawTreesInFront(sf::RenderWindow& window, const Player& player)
+{
+    float pGroundY = player.getGroundPosition().y;
+    for (const auto& tr : trees)
+    {
+        float trunkBaseY = tr.position.y + 110.f + 32.f;
+        if (trunkBaseY > pGroundY)
         {
-            // Молодое дерево (средняя стадия): пропорционально меньше взрослого дуба
-            treeSprite->setScale({ 1.25f, 1.25f });
-            float trunkBaseX = tr.position.x + 48.f + 16.f;
-            float trunkBaseY = tr.position.y + 110.f + 32.f;
-            treeSprite->setPosition({ trunkBaseX - 40.f, trunkBaseY - 100.f });
-            treeSprite->setColor(sf::Color(255, 255, 255, 255));
-            window.draw(*treeSprite);
-        }
-        else // stage == 0: саженец
-        {
-            if (saplingSprite)
-            {
-                saplingSprite->setScale({ 1.f, 1.f });
-                saplingSprite->setPosition({ tr.position.x + 48.f, tr.position.y + 110.f });
-                window.draw(*saplingSprite);
-            }
+            drawSingleTree(window, tr, player);
         }
     }
 }
@@ -528,12 +559,9 @@ std::vector<sf::FloatRect> World::getObstacles() const
 // ============================================
 void World::interact(Player& player, const std::string& itemId, Inventory& inv, std::vector<DroppedItem>& droppedItems, bool isRaining)
 {
-    sf::Vector2f pos = player.shape.getPosition();
-    float centerX = pos.x + Player::SIZE / 2.f;
-    float centerY = pos.y + Player::SIZE / 2.f;
-
-    int tileX = static_cast<int>(centerX / TILE_SIZE);
-    int tileY = static_cast<int>(centerY / TILE_SIZE);
+    sf::Vector2i tc = player.getTileCoords();
+    int tileX = tc.x;
+    int tileY = tc.y;
 
     int targetX = tileX + player.dirX;
     int targetY = tileY + player.dirY;

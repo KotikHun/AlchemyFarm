@@ -39,24 +39,14 @@ bool PlayerInteractionController::handleUseAction(Player& player,
         return true;
     }
 
-    // 2. Если в руках топор или кирка: попытка забрать мебель
-    if (hasTool)
-    {
-        if (placement.tryPickupFurniture(house, player, inv, chests, furniture, floatingTexts, itemDB, nearbyChest, nearbyFurnitureIdx))
-        {
-            player.playAction(activeItem.id == "axe" ? PlayerAction::Axe : PlayerAction::Pickaxe);
-            return true;
-        }
-    }
-
-    // 3. Сундук
+    // 2. Сундук (клавиша взаимодействия [E] открывает/закрывает сундук)
     if (nearbyChest != nullptr)
     {
         nearbyChest->isOpen = !nearbyChest->isOpen;
         return true;
     }
 
-    // 4. Мебель (кровать, котел, стол)
+    // 3. Функциональная мебель (кровать, котел, стол)
     if (nearbyFurnitureIdx >= 0 && nearbyFurnitureIdx < static_cast<int>(furniture.size()))
     {
         auto& f = furniture[nearbyFurnitureIdx];
@@ -77,6 +67,16 @@ bool PlayerInteractionController::handleUseAction(Player& player,
         }
     }
 
+    // 4. Если в руках топор или кирка: попытка демонтажа мебели (3 быстрых удара)
+    if (hasTool)
+    {
+        if (placement.tryPickupFurniture(house, player, inv, chests, furniture, floatingTexts, itemDB, nearbyChest, nearbyFurnitureIdx, &droppedItems))
+        {
+            player.playAction(activeItem.id == "axe" ? PlayerAction::Axe : PlayerAction::Pickaxe);
+            return true;
+        }
+    }
+
     // 5. Установка мебели из рук перед собой (сундук, кровать, котел, стол, ковер, окно)
     if (activeItem.id == "chest" || activeItem.id == "bed" || activeItem.id == "alchemist_table" ||
         activeItem.id == "cauldron" || activeItem.id == "carpet" || activeItem.id == "window")
@@ -90,8 +90,9 @@ bool PlayerInteractionController::handleUseAction(Player& player,
     // 6. Набор воды во флакон
     if (activeItem.id == "empty_flask")
     {
-        int pcx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirX;
-        int pcy = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE) + player.dirY;
+        sf::Vector2i tt = player.getTargetTileCoords();
+        int pcx = tt.x;
+        int pcy = tt.y;
         if (pcx >= 0 && pcx < World::WIDTH && pcy >= 0 && pcy < World::HEIGHT)
         {
             if (world.map[pcy][pcx].type == 2) // Вода
@@ -341,8 +342,9 @@ bool PlayerInteractionController::handleConsumeOrUseItem(Player& player,
         inv.addItem("empty_flask", 1, 99);
 
         // Ускоряем грядки вокруг игрока
-        int pcx = static_cast<int>((ppos.x + Player::SIZE / 2.f) / World::TILE_SIZE);
-        int pcy = static_cast<int>((ppos.y + Player::SIZE / 2.f) / World::TILE_SIZE);
+        sf::Vector2i tc = player.getTileCoords();
+        int pcx = tc.x;
+        int pcy = tc.y;
         for (int dy = -2; dy <= 2; dy++)
         {
             for (int dx = -2; dx <= 2; dx++)

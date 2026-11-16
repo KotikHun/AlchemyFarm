@@ -178,7 +178,7 @@ private:
         return placement.tryPlaceFurniture(itemId, house, world, player, inv, chests, furniture, floatingTexts, itemDB);
     }
     bool tryPickupFurniture() {
-        return placement.tryPickupFurniture(house, player, inv, chests, furniture, floatingTexts, itemDB, nearbyChest, nearbyFurnitureIdx);
+        return placement.tryPickupFurniture(house, player, inv, chests, furniture, floatingTexts, itemDB, nearbyChest, nearbyFurnitureIdx, &droppedItems);
     }
     void drawPlacementGrid(sf::RenderWindow& window) {
         placement.drawPlacementGrid(window, inv, activeSlot, player, house, world, chests, furniture, getMouseVirtualPixel());

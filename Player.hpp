@@ -33,6 +33,24 @@ struct Player {
         return sf::FloatRect({ pos.x + 7.f, pos.y + 18.f }, { 18.f, 12.f });
     }
 
+    // Центр основания/ног персонажа на земле
+    sf::Vector2f getGroundPosition() const {
+        sf::Vector2f pos = shape.getPosition();
+        return { pos.x + SIZE / 2.f, pos.y + 22.f };
+    }
+
+    // Координаты тайла, на котором стоит персонаж
+    sf::Vector2i getTileCoords() const {
+        sf::Vector2f gp = getGroundPosition();
+        return { static_cast<int>(gp.x / 32.f), static_cast<int>(gp.y / 32.f) };
+    }
+
+    // Координаты целевого тайла перед персонажем (по направлению взгляда)
+    sf::Vector2i getTargetTileCoords() const {
+        sf::Vector2i tc = getTileCoords();
+        return { tc.x + dirX, tc.y + dirY };
+    }
+
     // Графика
     sf::Texture texture;
     sf::Texture actionsTexture;
