@@ -50,8 +50,8 @@ struct World {
     std::unique_ptr<sf::Sprite> chamomileSprite;
 
     // Размер карты
-    static constexpr int WIDTH = 30;
-    static constexpr int HEIGHT = 25;
+    static constexpr int WIDTH = 60;
+    static constexpr int HEIGHT = 60;
     static constexpr float TILE_SIZE = 32.f;
 
     std::array<std::array<Tile, WIDTH>, HEIGHT> map;

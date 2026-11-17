@@ -112,6 +112,50 @@ void CameraSystem::update(float dt, const sf::Vector2f& playerPos, bool isInside
     worldView.setCenter(clampedCenter);
 }
 
+void CameraSystem::snapTo(const sf::Vector2f& playerPos, bool isInside, float mapWidthTiles, float mapHeightTiles)
+{
+    if (isInside)
+    {
+        targetCenter = { House::ROOM_X + House::ROOM_W / 2.f, House::ROOM_Y + House::ROOM_H / 2.f };
+    }
+    else
+    {
+        targetCenter = { playerPos.x + Player::SIZE / 2.f, playerPos.y + Player::SIZE / 2.f };
+    }
+
+    currentCenter = targetCenter;
+    sf::Vector2f clampedCenter = currentCenter;
+
+    if (!isInside)
+    {
+        float mapWidthPx = mapWidthTiles * 32.f;
+        float mapHeightPx = mapHeightTiles * 32.f;
+
+        float halfW = worldView.getSize().x / 2.f;
+        float halfH = worldView.getSize().y / 2.f;
+
+        if (halfW * 2.f >= mapWidthPx)
+        {
+            clampedCenter.x = mapWidthPx / 2.f;
+        }
+        else
+        {
+            clampedCenter.x = std::clamp(currentCenter.x, halfW, mapWidthPx - halfW);
+        }
+
+        if (halfH * 2.f >= mapHeightPx)
+        {
+            clampedCenter.y = mapHeightPx / 2.f;
+        }
+        else
+        {
+            clampedCenter.y = std::clamp(currentCenter.y, halfH, mapHeightPx - halfH);
+        }
+    }
+
+    worldView.setCenter(clampedCenter);
+}
+
 void CameraSystem::handleZoom(float delta)
 {
     // Зум колесиком мыши в диапазоне от 0.5x до 1.5x (1.0x — стандарт)

@@ -24,6 +24,7 @@ public:
     void init(float virtualWidth, float virtualHeight);
     void updateViewport(unsigned int windowWidth, unsigned int windowHeight, float virtualWidth, float virtualHeight);
     void update(float dt, const sf::Vector2f& playerPos, bool isInside, float mapWidthTiles, float mapHeightTiles);
+    void snapTo(const sf::Vector2f& playerPos, bool isInside, float mapWidthTiles, float mapHeightTiles);
     void handleZoom(float delta);
 
     sf::Vector2f mapPixelToWorld(const sf::Vector2i& pixel, const sf::RenderWindow& window) const;

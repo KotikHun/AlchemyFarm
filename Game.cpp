@@ -221,6 +221,9 @@ void Game::startNewGame()
     inspectedItemId.clear();
 
     triggerActiveSlotNotification();
+
+    lastIsInside = house.isInside;
+    camera.snapTo(player.shape.getPosition(), house.isInside, static_cast<float>(World::WIDTH), static_cast<float>(World::HEIGHT));
 }
 
 // ============================================
@@ -696,6 +699,9 @@ void Game::loadGameFromSlot(int slot)
 
     SaveManager::loadGame(slot, player, inv, timeSystem, world, house, chests, furniture, alchemy);
     triggerActiveSlotNotification();
+
+    lastIsInside = house.isInside;
+    camera.snapTo(player.shape.getPosition(), house.isInside, static_cast<float>(World::WIDTH), static_cast<float>(World::HEIGHT));
 }
 
 void Game::deleteGameSlot(int slot)
@@ -1381,9 +1387,9 @@ void Game::update(float dt)
             // Доска объявлений снаружи (Tile 15, 10 -> { 480.f, 320.f }, ровно 1 тайл)
             obstacles.push_back(sf::FloatRect({ 480.f, 320.f }, { 32.f, 32.f }));
         }
-        float winW = static_cast<float>(window.getSize().x);
-        float winH = static_cast<float>(window.getSize().y);
-        player.update(dt, winW, winH, obstacles);
+        float boundsW = house.isInside ? (House::ROOM_X + House::ROOM_W + 50.f) : (World::WIDTH * World::TILE_SIZE);
+        float boundsH = house.isInside ? (House::ROOM_Y + House::ROOM_H + 50.f) : (World::HEIGHT * World::TILE_SIZE);
+        player.update(dt, boundsW, boundsH, obstacles);
     }
 
     // 6. Всплывающие уведомления и тексты
@@ -1557,6 +1563,13 @@ void Game::update(float dt)
         {
             playerPrompt = "[E] Установить перед собой | [ЛКМ] По сетке";
         }
+    }
+
+    // Мгновенный перенос фокуса камеры при переходе между улицей и домом
+    if (lastIsInside != house.isInside)
+    {
+        camera.snapTo(player.shape.getPosition(), house.isInside, static_cast<float>(World::WIDTH), static_cast<float>(World::HEIGHT));
+        lastIsInside = house.isInside;
     }
 
     // Обновление камеры (следование за игроком / комната дома, зум)

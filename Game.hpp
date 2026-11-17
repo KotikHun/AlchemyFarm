@@ -134,6 +134,7 @@ struct Game {
     static constexpr float VIRTUAL_WIDTH = 960.f;
     static constexpr float VIRTUAL_HEIGHT = 800.f;
     CameraSystem camera;
+    bool lastIsInside = false;
     bool isFullscreen = false;
     void updateLetterboxView(unsigned int windowWidth, unsigned int windowHeight);
     sf::Vector2f getMouseVirtualCoords() const;

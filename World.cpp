@@ -101,27 +101,58 @@ void World::generateNewMap(int seed)
         }
     }
 
-    // 2. Водоем (пруд)
+    // 2. Водоемы (пруд у дома и дикое лесное озеро на юге)
     for (int y = 10; y <= 14; y++)
     {
         for (int x = 17; x <= 22; x++)
         {
-            map[y][x].type = 2; // вода
+            map[y][x].type = 2; // стартовый пруд у дома
+        }
+    }
+    for (int y = 42; y <= 47; y++)
+    {
+        for (int x = 40; x <= 46; x++)
+        {
+            map[y][x].type = 2; // южное дикое озеро
         }
     }
 
-    // 3. Деревья на ферме (ровно по тайловой сетке, ствол занимает ровно 1 тайл)
-    trees.push_back(Tree::createAtTile(3, 17, 4));   // Слева внизу
+    // 3. Деревья на ферме и в лесу (по тайловой сетке)
+    // Стартовая ферма
+    trees.push_back(Tree::createAtTile(3, 17, 4));   // Слева внизу от дома
     trees.push_back(Tree::createAtTile(24, 5, 4));   // Справа вверху
-    trees.push_back(Tree::createAtTile(26, 13, 4));  // Справа у края
+    trees.push_back(Tree::createAtTile(26, 13, 4));  // Справа у пруда
     trees.push_back(Tree::createAtTile(14, 20, 4));  // Снизу по центру
     trees.push_back(Tree::createAtTile(23, 19, 4));  // Справа внизу
 
-    // 4. Зарезервированная зона: Дом + радиус строго 2 клеток (x in 0..12, y in 0..11)
-    // А также водоем: на воде и берегах ничего стоять не может!
+    // Восточный и южный дубовый лес
+    trees.push_back(Tree::createAtTile(35, 7, 4));
+    trees.push_back(Tree::createAtTile(43, 10, 4));
+    trees.push_back(Tree::createAtTile(51, 8, 4));
+    trees.push_back(Tree::createAtTile(38, 17, 4));
+    trees.push_back(Tree::createAtTile(48, 18, 4));
+    trees.push_back(Tree::createAtTile(54, 24, 4));
+    trees.push_back(Tree::createAtTile(36, 28, 4));
+    trees.push_back(Tree::createAtTile(46, 32, 4));
+    trees.push_back(Tree::createAtTile(52, 38, 4));
+    trees.push_back(Tree::createAtTile(30, 42, 4));
+    trees.push_back(Tree::createAtTile(48, 50, 4));
+    trees.push_back(Tree::createAtTile(22, 52, 4));
+    trees.push_back(Tree::createAtTile(10, 48, 4));
+
+    // Молодые деревца и саженцы в роще
+    trees.push_back(Tree::createAtTile(40, 13, 1));
+    trees.push_back(Tree::createAtTile(46, 22, 0));
+    trees.push_back(Tree::createAtTile(34, 34, 1));
+    trees.push_back(Tree::createAtTile(50, 44, 0));
+    trees.push_back(Tree::createAtTile(26, 48, 1));
+
+    // 4. Зарезервированная зона: Дом + радиус 2 клеток (x in 0..12, y in 0..11)
+    // А также водоемы: на воде и берегах ничего стоять не может!
     auto inReservedZone = [&](int x, int y) {
-        if (x <= 12 && y <= 11) return true; // Чистая зона дома и 2 клеток вокруг него
-        if (x >= 16 && x <= 23 && y >= 9 && y <= 15) return true; // Вода и берега: на воде ничего стоять не может!
+        if (x <= 12 && y <= 11) return true; // Чистая зона дома и веранды
+        if (x >= 16 && x <= 23 && y >= 9 && y <= 15) return true; // Первый водоем
+        if (x >= 39 && x <= 47 && y >= 41 && y <= 48) return true; // Второе озеро
         for (const auto& tr : trees)
         {
             sf::FloatRect tb = tr.getTrunkBounds();
@@ -133,38 +164,79 @@ void World::generateNewMap(int seed)
         return false;
     };
 
-    // 5. Объекты расчистки (камни, сорняки)
-    for (int y = 1; y < 24; y++)
+    // 5. Объекты расчистки (камни, пни, сорняки)
+    for (int y = 1; y < HEIGHT - 1; y++)
     {
-        for (int x = 1; x < 29; x++)
+        for (int x = 1; x < WIDTH - 1; x++)
         {
-            if (map[y][x].type != 0) continue; // На воде и грядках ничего не спавнится!
+            if (map[y][x].type != 0) continue; // На воде и грядках ничего не спавнится
             if (inReservedZone(x, y)) continue;
 
             int h = (((x + seed * 7) * 45211) ^ ((y + seed * 19) * 982451)) & 0x7FFFFFFF;
             int r = h % 100;
 
-            if (r < 8)
+            // Зона каменистого карьера на юго-западе (x in 4..16, y in 32..44)
+            bool isQuarry = (x >= 4 && x <= 16 && y >= 32 && y <= 44);
+
+            if (isQuarry)
             {
-                WorldObject rock;
-                rock.tileX = x;
-                rock.tileY = y;
-                rock.type = ObjectType::Rock;
-                rock.variant = (h / 7) % 2; // Строго 2 варианта серых камней
-                rock.hp = 1;
-                rock.maxHp = 1;
-                objects.push_back(rock);
+                if (r < 22)
+                {
+                    WorldObject rock;
+                    rock.tileX = x;
+                    rock.tileY = y;
+                    rock.type = ObjectType::Rock;
+                    rock.variant = (h / 7) % 2;
+                    rock.hp = 1;
+                    rock.maxHp = 1;
+                    objects.push_back(rock);
+                }
+                else if (r < 27)
+                {
+                    WorldObject stump;
+                    stump.tileX = x;
+                    stump.tileY = y;
+                    stump.type = ObjectType::Stump;
+                    stump.hp = 1;
+                    stump.maxHp = 1;
+                    objects.push_back(stump);
+                }
+                else if (r < 35)
+                {
+                    WorldObject weed;
+                    weed.tileX = x;
+                    weed.tileY = y;
+                    weed.type = ObjectType::Weed;
+                    weed.hp = 1;
+                    weed.maxHp = 1;
+                    weed.variant = (h / 13) % 3;
+                    objects.push_back(weed);
+                }
             }
-            else if (r < 20)
+            else
             {
-                WorldObject weed;
-                weed.tileX = x;
-                weed.tileY = y;
-                weed.type = ObjectType::Weed;
-                weed.hp = 1;
-                weed.maxHp = 1;
-                weed.variant = (h / 13) % 3;
-                objects.push_back(weed);
+                if (r < 7)
+                {
+                    WorldObject rock;
+                    rock.tileX = x;
+                    rock.tileY = y;
+                    rock.type = ObjectType::Rock;
+                    rock.variant = (h / 7) % 2;
+                    rock.hp = 1;
+                    rock.maxHp = 1;
+                    objects.push_back(rock);
+                }
+                else if (r < 17)
+                {
+                    WorldObject weed;
+                    weed.tileX = x;
+                    weed.tileY = y;
+                    weed.type = ObjectType::Weed;
+                    weed.hp = 1;
+                    weed.maxHp = 1;
+                    weed.variant = (h / 13) % 3;
+                    objects.push_back(weed);
+                }
             }
         }
     }
@@ -221,9 +293,24 @@ sf::IntRect World::getWaterRect(int x, int y) const
 // ============================================
 void World::draw(sf::RenderWindow& window)
 {
-    for (int y = 0; y < HEIGHT; y++)
+    // Frustum Culling: вычисляем видимую область камеры для оптимизации
+    sf::View view = window.getView();
+    sf::Vector2f center = view.getCenter();
+    sf::Vector2f size = view.getSize();
+
+    float left = center.x - size.x / 2.f;
+    float top = center.y - size.y / 2.f;
+    float right = center.x + size.x / 2.f;
+    float bottom = center.y + size.y / 2.f;
+
+    int startX = std::max(0, static_cast<int>(std::floor(left / TILE_SIZE)) - 1);
+    int endX = std::min(WIDTH - 1, static_cast<int>(std::ceil(right / TILE_SIZE)) + 1);
+    int startY = std::max(0, static_cast<int>(std::floor(top / TILE_SIZE)) - 1);
+    int endY = std::min(HEIGHT - 1, static_cast<int>(std::ceil(bottom / TILE_SIZE)) + 1);
+
+    for (int y = startY; y <= endY; y++)
     {
-        for (int x = 0; x < WIDTH; x++)
+        for (int x = startX; x <= endX; x++)
         {
             float px = x * TILE_SIZE;
             float py = y * TILE_SIZE;
@@ -291,7 +378,6 @@ void World::draw(sf::RenderWindow& window)
                 if (t.cropType == 1 && chamomileSprite)
                 {
                     // Ромашка (4 стадии в полоске 128x32, размер кадра 32x32)
-                    // 1: Семена (Piskel 8) -> 2: Росток (Piskel 5) -> 3: Подросший (Piskel 6) -> 4: Финальный цветок
                     int frame = std::clamp(t.plantStage - 1, 0, 3);
                     chamomileSprite->setTextureRect(sf::IntRect({ frame * 32, 0 }, { 32, 32 }));
                     chamomileSprite->setPosition({ px, py });
@@ -315,22 +401,23 @@ void World::draw(sf::RenderWindow& window)
         }
     }
 
-    // Камни, пни и сорняки
+    // Камни, пни и сорняки (с отсечением невидимых за пределами экрана)
     for (const auto& obj : objects)
     {
+        if (obj.tileX < startX || obj.tileX > endX || obj.tileY < startY || obj.tileY > endY)
+            continue;
+
         sf::IntRect texRect;
 
         if (obj.type == ObjectType::Rock)
         {
-            // Строго два варианта серых камней с травинками по бокам (изображения 2 и 3)
             if (obj.variant == 0)
-                texRect = sf::IntRect({ 16, 32 }, { 16, 16 }); // Одиночный гладкий серый камень
+                texRect = sf::IntRect({ 16, 32 }, { 16, 16 });
             else
-                texRect = sf::IntRect({ 32, 32 }, { 16, 16 }); // Слоистый серый камень с травинками
+                texRect = sf::IntRect({ 32, 32 }, { 16, 16 });
         }
         else if (obj.type == ObjectType::Stump)
         {
-            // Натуральный коричневый древесный спил (никаких желтых камней/руды)
             texRect = sf::IntRect({ 0, 112 }, { 16, 16 });
         }
         else
@@ -404,9 +491,23 @@ void World::drawTrees(sf::RenderWindow& window, const Player& player)
 
 void World::drawTreesBehind(sf::RenderWindow& window, const Player& player)
 {
+    sf::View view = window.getView();
+    sf::Vector2f center = view.getCenter();
+    sf::Vector2f size = view.getSize();
+    float left = center.x - size.x / 2.f - Tree::WIDTH;
+    float right = center.x + size.x / 2.f + Tree::WIDTH;
+    float top = center.y - size.y / 2.f - Tree::HEIGHT;
+    float bottom = center.y + size.y / 2.f + Tree::HEIGHT;
+
     float pGroundY = player.getGroundPosition().y;
     for (const auto& tr : trees)
     {
+        if (tr.position.x < left || tr.position.x > right ||
+            tr.position.y < top || tr.position.y > bottom)
+        {
+            continue;
+        }
+
         float trunkBaseY = tr.position.y + 110.f + 32.f;
         if (trunkBaseY <= pGroundY)
         {
@@ -417,9 +518,23 @@ void World::drawTreesBehind(sf::RenderWindow& window, const Player& player)
 
 void World::drawTreesInFront(sf::RenderWindow& window, const Player& player)
 {
+    sf::View view = window.getView();
+    sf::Vector2f center = view.getCenter();
+    sf::Vector2f size = view.getSize();
+    float left = center.x - size.x / 2.f - Tree::WIDTH;
+    float right = center.x + size.x / 2.f + Tree::WIDTH;
+    float top = center.y - size.y / 2.f - Tree::HEIGHT;
+    float bottom = center.y + size.y / 2.f + Tree::HEIGHT;
+
     float pGroundY = player.getGroundPosition().y;
     for (const auto& tr : trees)
     {
+        if (tr.position.x < left || tr.position.x > right ||
+            tr.position.y < top || tr.position.y > bottom)
+        {
+            continue;
+        }
+
         float trunkBaseY = tr.position.y + 110.f + 32.f;
         if (trunkBaseY > pGroundY)
         {
