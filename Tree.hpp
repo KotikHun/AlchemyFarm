@@ -32,6 +32,12 @@ struct Tree {
     }
 
     // Коллизия ствола — ровно 1 тайл (32x32), откуда растёт ствол
+    // Саженцы (0) и молодые деревья (1) полностью проходимы!
+    // Только взрослый вековой дуб (2) имеет твердый непроходимый ствол.
+    bool isSolid() const {
+        return stage == 2;
+    }
+
     sf::FloatRect getTrunkBounds() const {
         return sf::FloatRect(
             { position.x + 48.f, position.y + 110.f },

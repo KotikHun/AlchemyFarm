@@ -663,7 +663,10 @@ std::vector<sf::FloatRect> World::getObstacles() const
 
     for (const auto& tr : trees)
     {
-        obs.push_back(tr.getTrunkBounds());
+        if (tr.isSolid())
+        {
+            obs.push_back(tr.getTrunkBounds());
+        }
     }
 
     return obs;

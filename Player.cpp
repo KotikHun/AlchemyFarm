@@ -206,14 +206,24 @@ void Player::update(float dt, float windowWidth, float windowHeight,
 
     isMoving = (dx != 0.f || dy != 0.f);
 
+    sf::FloatRect currentHitbox = getHitbox(pos);
+
     // === Проверка коллизий по X (хитбокс ног) ===
     sf::Vector2f newPosX = { pos.x + dx, pos.y };
     sf::FloatRect rectX = getHitbox(newPosX);
     bool blockedX = false;
     for (const auto& obs : obstacles)
     {
-        if (rectX.findIntersection(obs).has_value())
+        auto newInter = rectX.findIntersection(obs);
+        if (newInter.has_value())
         {
+            // Защита от застревания (Unstuck mechanic):
+            // Если игрок уже был внутри препятствия и движение уменьшает перекрытие, разрешаем выйти!
+            auto curInter = currentHitbox.findIntersection(obs);
+            if (curInter.has_value() && (newInter->size.x * newInter->size.y < curInter->size.x * curInter->size.y))
+            {
+                continue;
+            }
             blockedX = true;
             break;
         }
@@ -221,14 +231,24 @@ void Player::update(float dt, float windowWidth, float windowHeight,
     if (!blockedX)
         pos.x = newPosX.x;
 
+    currentHitbox = getHitbox(pos);
+
     // === Проверка коллизий по Y (хитбокс ног) ===
     sf::Vector2f newPosY = { pos.x, pos.y + dy };
     sf::FloatRect rectY = getHitbox(newPosY);
     bool blockedY = false;
     for (const auto& obs : obstacles)
     {
-        if (rectY.findIntersection(obs).has_value())
+        auto newInter = rectY.findIntersection(obs);
+        if (newInter.has_value())
         {
+            // Защита от застревания (Unstuck mechanic):
+            // Если игрок уже был внутри препятствия и движение уменьшает перекрытие, разрешаем выйти!
+            auto curInter = currentHitbox.findIntersection(obs);
+            if (curInter.has_value() && (newInter->size.x * newInter->size.y < curInter->size.x * curInter->size.y))
+            {
+                continue;
+            }
             blockedY = true;
             break;
         }
