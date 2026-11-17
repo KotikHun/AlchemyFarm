@@ -45,6 +45,6 @@ public:
     void triggerFadeOut();
     void triggerFadeIn();
 
-    void drawNightOverlay(sf::RenderWindow& window, const std::vector<std::pair<sf::Vector2f, float>>& lightSources);
+    void drawNightOverlay(sf::RenderWindow& window, const std::vector<std::pair<sf::Vector2f, float>>& lightSources, sf::Vector2f viewTopLeft = { 0.f, 0.f }, sf::Vector2f viewSize = { 960.f, 800.f });
     void drawFade(sf::RenderWindow& window);
 };

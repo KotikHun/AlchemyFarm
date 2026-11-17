@@ -155,6 +155,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CameraSystem.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClInclude Include="Chest.hpp" />
     <ClInclude Include="DroppedItem.hpp" />
@@ -184,6 +185,7 @@
     <ClCompile Include="PlayerInteractionController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CameraSystem.hpp" />
     <ClInclude Include="Inventory.hpp" />
     <ClInclude Include="Item.hpp" />
     <ClInclude Include="ItemDatabase.hpp" />

@@ -47,6 +47,7 @@ Game::Game()
     // Начальная генерация мира и стартовых объектов
     startNewGame();
 
+    camera.init(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
     updateLetterboxView(window.getSize().x, window.getSize().y);
     initRain();
     initShopCatalog();
@@ -105,42 +106,30 @@ void Game::updateParticles(float dt)
 // ============================================
 void Game::updateLetterboxView(unsigned int windowWidth, unsigned int windowHeight)
 {
-    float windowRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
-    float viewRatio = VIRTUAL_WIDTH / VIRTUAL_HEIGHT;
-
-    float sizeX = 1.0f;
-    float sizeY = 1.0f;
-    float posX = 0.0f;
-    float posY = 0.0f;
-
-    if (windowRatio >= viewRatio)
-    {
-        // Окно шире -> черные полосы по бокам (pillarbox)
-        sizeX = viewRatio / windowRatio;
-        posX = (1.0f - sizeX) / 2.0f;
-    }
-    else
-    {
-        // Окно выше -> черные полосы сверху и снизу (letterbox)
-        sizeY = windowRatio / viewRatio;
-        posY = (1.0f - sizeY) / 2.0f;
-    }
-
-    letterboxView.setSize({ VIRTUAL_WIDTH, VIRTUAL_HEIGHT });
-    letterboxView.setCenter({ VIRTUAL_WIDTH / 2.f, VIRTUAL_HEIGHT / 2.f });
-    letterboxView.setViewport(sf::FloatRect({ posX, posY }, { sizeX, sizeY }));
-    window.setView(letterboxView);
+    camera.updateViewport(windowWidth, windowHeight, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+    window.setView(camera.uiView);
 }
 
 sf::Vector2f Game::getMouseVirtualCoords() const
 {
-    return window.mapPixelToCoords(sf::Mouse::getPosition(window), letterboxView);
+    return camera.mapPixelToUI(sf::Mouse::getPosition(window), window);
 }
 
 sf::Vector2i Game::getMouseVirtualPixel() const
 {
     sf::Vector2f c = getMouseVirtualCoords();
     return sf::Vector2i(static_cast<int>(std::round(c.x)), static_cast<int>(std::round(c.y)));
+}
+
+sf::Vector2f Game::getMouseWorldCoords() const
+{
+    return camera.mapPixelToWorld(sf::Mouse::getPosition(window), window);
+}
+
+sf::Vector2i Game::getMouseWorldPixel() const
+{
+    sf::Vector2f c = getMouseWorldCoords();
+    return sf::Vector2i(static_cast<int>(std::floor(c.x)), static_cast<int>(std::floor(c.y)));
 }
 
 // ============================================
@@ -1054,8 +1043,9 @@ void Game::handleEvents()
                             sf::Vector2i tc = player.getTileCoords();
                             int ptx = tc.x;
                             int pty = tc.y;
-                            int htx = static_cast<int>(mx / 32.f);
-                            int hty = static_cast<int>(my / 32.f);
+                            sf::Vector2i mw = getMouseWorldPixel();
+                            int htx = static_cast<int>(std::floor(mw.x / 32.f));
+                            int hty = static_cast<int>(std::floor(mw.y / 32.f));
 
                             if (std::abs(htx - ptx) <= 3 && std::abs(hty - pty) <= 3)
                             {
@@ -1149,6 +1139,18 @@ void Game::handleEvents()
                 float my = static_cast<float>(mousePixel.y);
                 InventoryController::handleDragRelease(mx, my, mousePixel, isDragging, draggedItem, draggedFromSlot,
                     draggedFromChest, nearbyChest, inv, itemDB, sound, floatingTexts, player.shape.getPosition());
+            }
+        }
+
+        // --- КОЛЕСИКО МЫШИ (ЗУМ КАМЕРЫ) ---
+        if (const auto* wheelEvent = event->getIf<sf::Event::MouseWheelScrolled>())
+        {
+            bool anyModalOpen = isInventoryOpen || (nearbyChest && nearbyChest->isOpen) ||
+                                alchemy.isCauldronOpen || alchemy.isTableOpen || isOrdersBoardOpen ||
+                                gameState == GameState::MainMenu || gameState == GameState::PauseMenu;
+            if (!anyModalOpen && gameState == GameState::Playing)
+            {
+                camera.handleZoom(wheelEvent->delta);
             }
         }
     }
@@ -1556,6 +1558,9 @@ void Game::update(float dt)
             playerPrompt = "[E] Установить перед собой | [ЛКМ] По сетке";
         }
     }
+
+    // Обновление камеры (следование за игроком / комната дома, зум)
+    camera.update(dt, player.shape.getPosition(), house.isInside, static_cast<float>(World::WIDTH), static_cast<float>(World::HEIGHT));
 }
 
 // ============================================
@@ -1564,7 +1569,7 @@ void Game::update(float dt)
 void Game::render()
 {
     window.clear(sf::Color::Black);
-    window.setView(letterboxView);
+    window.setView(camera.uiView);
 
     if (gameState == GameState::MainMenu)
     {
@@ -1576,7 +1581,7 @@ void Game::render()
     if (gameState == GameState::Loading)
     {
         window.clear(sf::Color::Black);
-        window.setView(letterboxView);
+        window.setView(camera.uiView);
         const std::vector<std::string> loadingTips = {
             "Зажмите ПКМ на любом предмете в инвентаре для просмотра подробного описания и свойств.",
             "Внутри дома можно свободно расставлять и переносить мебель с помощью сетки на 3 клетки.",
@@ -1593,6 +1598,7 @@ void Game::render()
     if (gameState == GameState::Sleeping)
     {
         window.clear();
+        window.setView(camera.uiView);
         ui.drawSleepReport(window, sleepReport, menuAnimTime, isSleepNextHovered);
         if (fadeAlpha > 0.5f)
         {
@@ -1605,6 +1611,11 @@ void Game::render()
     }
 
     window.clear(sf::Color(20, 20, 25));
+
+    // ============================================
+    // ФАЗА 1: МИР (камера, следование за игроком, зум)
+    // ============================================
+    window.setView(camera.worldView);
 
     sf::Vector2f ppos = player.shape.getPosition();
 
@@ -1934,7 +1945,42 @@ void Game::render()
         // Свет из окон дома снаружи ночью
         lights.push_back({ { house.exteriorPos.x + 32.f, house.exteriorPos.y - 70.f }, 85.f });
     }
-    timeSystem.drawNightOverlay(window, lights);
+    sf::Vector2f viewTopLeft = camera.worldView.getCenter() - camera.worldView.getSize() / 2.f;
+    timeSystem.drawNightOverlay(window, lights, viewTopLeft, camera.worldView.getSize());
+
+    // Всплывающий текст в игровом мире
+    ui.drawFloatingTexts(window, floatingTexts);
+
+    // Подсказка взаимодействия над персонажем в мировых координатах
+    if (!playerPrompt.empty() && !anyModalOpen)
+    {
+        sf::Text pTxt(ui.font);
+        pTxt.setString(toUtf8(playerPrompt));
+        pTxt.setCharacterSize(14);
+        sf::FloatRect b = pTxt.getLocalBounds();
+        pTxt.setOrigin({ b.position.x + b.size.x / 2.f, b.position.y + b.size.y });
+
+        float tx = ppos.x + Player::SIZE / 2.f;
+        float ty = ppos.y - 8.f;
+
+        // Тонкая тень для читаемости
+        pTxt.setFillColor(sf::Color(0, 0, 0, 190));
+        pTxt.setPosition({ tx + 1.f, ty + 1.f });
+        window.draw(pTxt);
+
+        // Белый текст без фона
+        pTxt.setFillColor(sf::Color(255, 255, 255));
+        pTxt.setPosition({ tx, ty });
+        window.draw(pTxt);
+    }
+
+    // ============================================
+    // ФАЗА 2: ИНТЕРФЕЙС И ПОГОДА (фиксированный UI слой 960x800)
+    // ============================================
+    window.setView(camera.uiView);
+
+    // Погода (дождь на открытом воздухе поверх экрана)
+    weather.draw(window, timeSystem.isRaining, house.isInside, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
     // 4. Экран затемнения (сон / переход)
     timeSystem.drawFade(window);
@@ -1994,30 +2040,6 @@ void Game::render()
     if (activeNotificationTimer > 0.f && !activeItemNotification.empty())
     {
         ui.drawActiveItemNotification(window, activeItemNotification, activeNotificationTimer);
-    }
-    ui.drawFloatingTexts(window, floatingTexts);
-
-    // Подсказка взаимодействия над персонажем (скрывается, если открыто любое модальное окно)
-    if (!playerPrompt.empty() && !anyModalOpen)
-    {
-        sf::Text pTxt(ui.font);
-        pTxt.setString(toUtf8(playerPrompt));
-        pTxt.setCharacterSize(14);
-        sf::FloatRect b = pTxt.getLocalBounds();
-        pTxt.setOrigin({ b.position.x + b.size.x / 2.f, b.position.y + b.size.y });
-
-        float tx = ppos.x + Player::SIZE / 2.f;
-        float ty = ppos.y - 8.f;
-
-        // Тонкая тень для читаемости
-        pTxt.setFillColor(sf::Color(0, 0, 0, 190));
-        pTxt.setPosition({ tx + 1.f, ty + 1.f });
-        window.draw(pTxt);
-
-        // Белый текст без фона
-        pTxt.setFillColor(sf::Color(255, 255, 255));
-        pTxt.setPosition({ tx, ty });
-        window.draw(pTxt);
     }
 
     // 14. Тултип предмета под курсором

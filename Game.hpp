@@ -23,6 +23,7 @@
 #include "StorageSystem.hpp"
 #include "InventoryController.hpp"
 #include "PlayerInteractionController.hpp"
+#include "CameraSystem.hpp"
 #include <vector>
 
 // InventoryTab is in Inventory.hpp
@@ -132,11 +133,13 @@ struct Game {
     // Виртуальный экран и Letterbox (сохранение пропорций 960x800)
     static constexpr float VIRTUAL_WIDTH = 960.f;
     static constexpr float VIRTUAL_HEIGHT = 800.f;
-    sf::View letterboxView;
+    CameraSystem camera;
     bool isFullscreen = false;
     void updateLetterboxView(unsigned int windowWidth, unsigned int windowHeight);
     sf::Vector2f getMouseVirtualCoords() const;
     sf::Vector2i getMouseVirtualPixel() const;
+    sf::Vector2f getMouseWorldCoords() const;
+    sf::Vector2i getMouseWorldPixel() const;
 
     // Погода и квесты (перенаправление в подсистемы)
     std::vector<RainDrop>& rainDrops;
@@ -181,7 +184,7 @@ private:
         return placement.tryPickupFurniture(house, player, inv, chests, furniture, floatingTexts, itemDB, nearbyChest, nearbyFurnitureIdx, &droppedItems);
     }
     void drawPlacementGrid(sf::RenderWindow& window) {
-        placement.drawPlacementGrid(window, inv, activeSlot, player, house, world, chests, furniture, getMouseVirtualPixel());
+        placement.drawPlacementGrid(window, inv, activeSlot, player, house, world, chests, furniture, getMouseWorldPixel());
     }
     void drawFurniturePiece(sf::RenderWindow& window, const Furniture& f) {
         placement.drawFurniturePiece(window, f);

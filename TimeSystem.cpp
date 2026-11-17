@@ -94,7 +94,7 @@ void TimeSystem::triggerFadeIn()
     isFadingOut = false;
 }
 
-void TimeSystem::drawNightOverlay(sf::RenderWindow& window, const std::vector<std::pair<sf::Vector2f, float>>& lightSources)
+void TimeSystem::drawNightOverlay(sf::RenderWindow& window, const std::vector<std::pair<sf::Vector2f, float>>& lightSources, sf::Vector2f viewTopLeft, sf::Vector2f viewSize)
 {
     // Расчет темноты в зависимости от времени суток:
     // 06:00 - 18:00 (0 - 720 мин): День (alpha = 0)
@@ -166,7 +166,7 @@ void TimeSystem::drawNightOverlay(sf::RenderWindow& window, const std::vector<st
             float r = radius * (static_cast<float>(i) / steps);
             sf::CircleShape glow(r);
             glow.setOrigin({ r, r });
-            glow.setPosition(pos);
+            glow.setPosition({ pos.x - viewTopLeft.x, pos.y - viewTopLeft.y });
 
             // Плавное рассеивание
             float factor = 1.f - (static_cast<float>(i) / steps);
@@ -181,6 +181,8 @@ void TimeSystem::drawNightOverlay(sf::RenderWindow& window, const std::vector<st
     lightTexture.display();
 
     sf::Sprite overlaySprite(lightTexture.getTexture());
+    overlaySprite.setPosition(viewTopLeft);
+    overlaySprite.setScale({ viewSize.x / 960.f, viewSize.y / 800.f });
     window.draw(overlaySprite);
 }
 
