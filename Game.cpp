@@ -47,6 +47,14 @@ Game::Game()
     // Начальная генерация мира и стартовых объектов
     startNewGame();
 
+    // Иконка окна приложения
+    sf::Image windowIcon;
+    if (windowIcon.loadFromFile("assets/sprites/icons/grand_nectar.png") ||
+        windowIcon.loadFromFile("assets/sprites/icons/energy_potion.png"))
+    {
+        window.setIcon(windowIcon.getSize(), windowIcon.getPixelsPtr());
+    }
+
     camera.init(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
     updateLetterboxView(window.getSize().x, window.getSize().y);
     initRain();
